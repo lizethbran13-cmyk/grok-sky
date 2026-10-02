@@ -281,3 +281,42 @@ body.touchdev .toast { font-size: 10.5px; padding: 3px 7px; max-width: 100%; dis
 @media (orientation: portrait) and (max-width: 600px) {
   body.touchdev #toasts { left: calc(10px + env(safe-area-inset-left)); top: calc(246px + env(safe-area-inset-top)); width: calc(100% - 80px); max-height: 70px; }
 }
+
+/* 3.5.1 TAXI TO GATE: shares the auto-land slot (they are never shown together), blue so it reads differently */
+#tgbtn { position: fixed; left: 50%; top: 21%; transform: translateX(-50%); z-index: 13; display: none; max-width: calc(100% - 24px); min-width: 230px; padding: 12px 22px; border-radius: 30px; font-size: 19px; font-weight: 900; color: #fff; border: 3px solid #bfe6ff; background: linear-gradient(180deg, #3aa0ff, #1663c7); box-shadow: 0 0 18px rgba(80,170,255,.85); pointer-events: auto; cursor: pointer; white-space: nowrap; touch-action: manipulation; }
+#tgbtn small { display: block; font-size: 11px; font-weight: 700; opacity: .92; margin-top: 2px; }
+#tgbtn.offer { animation: ppulse 1.1s ease-in-out infinite; }
+#tgbtn.offer.prompt { box-shadow: 0 0 26px rgba(120,200,255,1); border-color: #fff; }
+#tgbtn.active { background: linear-gradient(180deg, #2fb36a, #17804a); border-color: #b9ffd3; box-shadow: 0 0 14px rgba(60,255,140,.6); font-size: 16px; padding: 9px 18px; }
+#tgbtn.done { background: linear-gradient(180deg, #2fb36a, #17804a); border-color: #b9ffd3; font-size: 16px; padding: 9px 18px; cursor: default; }
+body:not(.playing) #tgbtn { display: none !important; }
+.hver { font-size: 12px; color: #8fd3ff; font-weight: 700; vertical-align: middle; }
+@media (max-height: 500px) { #tgbtn { top: 19%; font-size: 17px; padding: 8px 18px; } #tgbtn.active, #tgbtn.done { font-size: 15px; padding: 7px 16px; } }
+@media (orientation: portrait) and (max-width: 600px) {
+  body.touchdev #tgbtn { top: calc(166px + env(safe-area-inset-top)); left: calc(10px + env(safe-area-inset-left)); transform: none; min-width: 0; white-space: normal; width: calc(100% - 82px); padding: 9px 12px; font-size: 17px; }
+}
+
+/* 3.5.1 GROK JAIL: arrest cuffs sparkle + the cell panel */
+#busted .cuffs { font-size: 44px; position: relative; display: inline-block; animation: cuffs .6s ease-in-out infinite alternate; }
+#busted .cuffs i { position: absolute; font-style: normal; font-size: 20px; animation: spark 0.9s linear infinite; }
+#busted .cuffs i:nth-child(1) { left: -18px; top: -6px; } #busted .cuffs i:nth-child(2) { right: -20px; top: 4px; animation-delay: .3s; } #busted .cuffs i:nth-child(3) { left: 14px; top: -22px; animation-delay: .6s; }
+@keyframes cuffs { from { transform: rotate(-12deg) scale(1); } to { transform: rotate(12deg) scale(1.15); } }
+@keyframes spark { 0% { opacity: 0; transform: scale(.4); } 50% { opacity: 1; transform: scale(1.2); } 100% { opacity: 0; transform: scale(.4); } }
+#jail { width: min(560px, calc(100% - 16px)); z-index: 33; padding: 10px 12px; touch-action: none; }
+#jail .jhead { display: flex; align-items: baseline; justify-content: center; gap: 10px; flex-wrap: wrap; }
+#jail h2 { margin: 0; color: #ffd23d; text-shadow: 2px 2px 0 #c62828; }
+#jail-sub { font-size: 12px; color: #9fb3d9; }
+#jail-cv { display: block; width: 100%; height: 190px; border-radius: 10px; margin: 6px 0; background: #555; touch-action: none; }
+#jail-timer { font-weight: 900; font-size: 16px; }
+#jail-msg { min-height: 18px; font-size: 13px; font-weight: 700; color: #ffd23d; margin: 2px 0 6px; }
+#jail-acts { display: flex; gap: 8px; justify-content: center; }
+#jail .jb { flex: 1; min-height: 58px; font-size: 16px; font-weight: 900; border-radius: 12px; padding: 6px 4px; touch-action: manipulation; }
+#jail .jb small { display: block; font-size: 10.5px; font-weight: 700; opacity: .85; margin-top: 2px; }
+#jail .jb.bail { background: linear-gradient(180deg, #ffd23d, #e0a800); color: #222; }
+#jail .jb.bail.off { filter: grayscale(.8) brightness(.8); }
+#jail .jb.wait { background: linear-gradient(180deg, #3aa0ff, #1663c7); color: #fff; }
+#jail .jb.esc { background: linear-gradient(180deg, #ff9a3c, #e8581c); color: #fff; }
+#jail .jb.dig { background: linear-gradient(180deg, #8d6e63, #5d4037); color: #fff; min-height: 76px; font-size: 24px; }
+@media (max-height: 500px) { #jail { padding: 6px 10px; } #jail h2 { font-size: 17px; } #jail-cv { height: 128px; margin: 4px 0; } #jail-timer { font-size: 14px; } #jail-msg { margin: 0 0 4px; min-height: 16px; } #jail .jb { min-height: 50px; font-size: 14px; } #jail .jb.dig { min-height: 58px; font-size: 20px; } }
+@media (orientation: portrait) and (max-width: 600px) { #jail-cv { height: 230px; } #jail-acts { flex-direction: column; } #jail .jb { min-height: 56px; } }
+body.panel-open #toasts { display: none; } /* 3.5.1: never over the GROK JAIL panel */

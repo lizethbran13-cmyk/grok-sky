@@ -410,27 +410,29 @@ C.update = (dt) => {
   let sl = 0; if (C.wanted > 0) for (const cp of cops) sl = Math.max(sl, clamp(1 - hyp(cp.pos.x - G.camPos.x, cp.pos.z - G.camPos.z) / 260, 0, 1));
   C.sirenLvl = sl;
   // busted screen
-  if (C.busted) { const B = C.busted; B.t += dt; if (B.t > 1.0 && !B.moved) { B.moved = true; respawnAtPolice(B); } if (B.t > 3.2) { C.busted = null; const el = document.getElementById('busted'); if (el) el.classList.remove('show'); } }
+  if (C.busted) { const B = C.busted; B.t += dt; const jail = !!SKY.Jail; // 3.5.1: arrest (cuffs sparkle) -> GROK JAIL cell at the police office
+    if (B.t > (jail ? 1.6 : 1.0) && !B.moved) { B.moved = true; respawnAtPolice(B); }
+    if (B.t > (jail ? 2.6 : 3.2)) { C.busted = null; const el = document.getElementById('busted'); if (el) el.classList.remove('show'); if (jail && B.apt) SKY.Jail.enter(B.apt); } }
 };
 function bust() {
-  const P = SKY.Player, PL = SKY.Places; const fine = Math.min(PL.coins(), 15);
+  const P = SKY.Player, PL = SKY.Places; const fine = SKY.Jail ? 0 : Math.min(PL.coins(), 15); // 3.5.1: no fine any more, you go to GROK JAIL
   C.busted = { t: 0, fine, moved: false }; C.stats.busted++;
   if (fine > 0) { PL.save.coins -= fine; PL.persist(); }
-  const el = document.getElementById('busted'); if (el) { el.querySelector('.bsub').textContent = (fine ? '−' + fine + ' 🪙 fine · ' : '') + choose(['"Rules of the road, pal!"', '"Nice try, speed racer."', '"License and registration... oh, wait."', '"You have the right to remain cartoony."']); el.classList.add('show'); }
+  const el = document.getElementById('busted'); if (el) { el.classList.toggle('jail', !!SKY.Jail); el.querySelector('.bsub').textContent = (SKY.Jail ? '🔗 You\'re under arrest! Off to GROK JAIL… · ' : '') + (fine ? '−' + fine + ' 🪙 fine · ' : '') + choose(['"Rules of the road, pal!"', '"Nice try, speed racer."', '"License and registration... oh, wait."', '"You have the right to remain cartoony."']); el.classList.add('show'); }
   SKY.Audio.play('error'); SKY.Game.achieve('busted');
 }
 function respawnAtPolice(B) {
   const P = SKY.Player; const car = C.cur; const ref = car ? car.pos : P.pos;
-  const apt = SKY.Airport.nearest(ref.x, ref.z, 1e9) || SKY.Airport.list[0];
+  const apt = SKY.Airport.nearest(ref.x, ref.z, 1e9) || SKY.Airport.list[0]; B.apt = apt;
   if (car) { C.cur = null; if (car.stolen || car.kind === 'rental') removeCar(car); }
   for (const cp of C.police()) removeCar(cp);
   C.wanted = 0; C.evadeT = 0; C.bustT = 0; C.breakIn = null;
   W.ensureCity(apt.c);
   if (SKY.Places && SKY.Places.cur) SKY.Places.clearCur();
   const pp = C.policePos(apt); P.mode = 'foot'; P.frame = 'world'; P.chute = false; P.pos.set(pp.x, W.heightAt(pp.x, pp.z) + 0.05, pp.z); P.vel.set(0, 0, 0); P.yaw = 0; P.pitch = 0; P.grounded = true; SKY.Game.camInit = false;
-  SKY.toast('🚔 Busted! Released from the ' + apt.code + ' airport police office' + (B.fine ? ' after paying a ' + B.fine + '-coin fine' : '') + '. Drive nice!', 'warn');
+  if (!SKY.Jail) SKY.toast('🚔 Busted! Released from the ' + apt.code + ' airport police office' + (B.fine ? ' after paying a ' + B.fine + '-coin fine' : '') + '. Drive nice!', 'warn');
 }
-C.reset = () => { for (const car of C.list.slice()) if (car.kind === 'police' || car.owner === 'player') removeCar(car); C.cur = null; C.wanted = 0; C.evadeT = 0; C.bustT = 0; C.breakIn = null; C.busted = null; const el = document.getElementById('busted'); if (el) el.classList.remove('show'); };
+C.reset = () => { if (SKY.Jail) SKY.Jail.reset(); for (const car of C.list.slice()) if (car.kind === 'police' || car.owner === 'player') removeCar(car); C.cur = null; C.wanted = 0; C.evadeT = 0; C.bustT = 0; C.breakIn = null; C.busted = null; const el = document.getElementById('busted'); if (el) el.classList.remove('show'); };
 // chase camera (called from Game.updateCamera)
 C.camera = (cam, dt, O) => {
   const car = C.cur, G = SKY.Game; if (O.t > 0) O.t -= dt; else { O.yaw *= 1 - 2 * dt; O.pitch *= 1 - 2 * dt; }

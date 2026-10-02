@@ -188,12 +188,14 @@ const P = SKY.Player = {
   updatePilot(dt, I) {
     const pl = this.plane;
     if (SKY.AutoLand) SKY.AutoLand.checkInput(I); // any flight input cancels auto-land
+    const TG = SKY.TaxiGate; if (TG) TG.checkInput(I); // 3.5.1: any throttle / steering input cancels taxi-to-gate
     const inv = SKY.Game.settings.invert ? -1 : 1;
     const ctl = { pitch: -I.move.y * inv, roll: I.move.x, yaw: (I.hold('yawR') ? 1 : 0) - (I.hold('yawL') ? 1 : 0) };
     if (I.throttleAbs !== null) { pl.throttle = I.throttleAbs; I.throttleAbs = null; }
     if (I.hold('thrUp')) pl.throttle = clamp(pl.throttle + dt * 0.5, 0, 1);
     if (I.hold('thrDown')) pl.throttle = clamp(pl.throttle - dt * 0.5, 0, 1);
-    if (I.edge('gear')) { if (!pl.gearBroken) { pl.gearDown = !pl.gearDown; SKY.toast('Gear ' + (pl.gearDown ? 'DOWN' : 'UP')); } }
+    if (I.edge('gKey') && TG && TG.wantsKey()) I.edges.taxigate = true; // desktop G on the ground = TAXI TO GATE (gear stays down)
+    else if (I.edge('gear')) { if (!pl.gearBroken) { pl.gearDown = !pl.gearDown; SKY.toast('Gear ' + (pl.gearDown ? 'DOWN' : 'UP')); } }
     if (I.edge('flaps')) { pl.flaps = (pl.flaps + 1) % 3; SKY.toast('Flaps ' + pl.flaps); }
     if (I.edge('ap') && !pl.ap.on && pl.onGround && SKY.Airport && SKY.Airport.groundAP(pl)) { /* ground autopilot: auto-taxi / pushback / takeoff */ }
     else if (I.edge('ap')) { if (pl.ap.on && SKY.Airport) SKY.Airport.taxi = null; pl.ap.on = !pl.ap.on; if (pl.ap.on) { pl.ap.alt = Math.max(pl.pos.y, 400); pl.ap.hdg = pl.heading() * Math.PI / 180; pl.ap.dest = null; pl.ap.mode = 'cruise'; pl.ap.by = 'player'; } SKY.toast('Autopilot ' + (pl.ap.on ? 'ON (holding alt/hdg)' : 'OFF')); }

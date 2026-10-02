@@ -220,7 +220,14 @@ SKY.Labels = (() => {
 })();
 
 SKY.toastQ = [];
+SKY.toastHold = null; // 3.5.1: while a full-screen panel (GROK JAIL) is open, toasts wait here instead of covering it
+SKY.holdToasts = (on) => {
+  document.body.classList.toggle('panel-open', !!on);
+  if (on) { if (!SKY.toastHold) SKY.toastHold = []; return; }
+  const q = SKY.toastHold || []; SKY.toastHold = null; for (const t of q) SKY.toast(t[0], t[1]);
+};
 SKY.toast = (msg, cls) => {
+  if (SKY.toastHold) { SKY.toastHold.push([msg, cls]); if (SKY.toastHold.length > 3) SKY.toastHold.shift(); return; }
   const box = document.getElementById('toasts'); if (!box) return;
   const d = document.createElement('div'); d.className = 'toast ' + (cls || ''); d.textContent = msg;
   // phones (3.5): at most 2 short-lived toasts so they never pile up over the controls

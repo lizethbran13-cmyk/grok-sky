@@ -79,7 +79,7 @@ AL.control = (dt) => {
     if (A.phase !== 'rollout') { A.phase = 'rollout'; A.tdS = s; SKY.Audio.play('crunch', 0.3); }
     pl.throttle = 0; pl.brake = true;
     // heading / centreline are held in post()
-    if (spd < 0.8) { const lbl = A.label; AL.active = null; SKY.toast('✅ Auto-land complete: stopped on runway ' + lbl + '. Taxi to a gate (T = auto-taxi).', 'good'); SKY.Audio.play('ok'); G.achieve('autoland'); }
+    if (spd < 0.8) { const lbl = A.label; AL.active = null; SKY.toast('✅ Auto-land complete: stopped on runway ' + lbl + '.', 'good'); SKY.Audio.play('ok'); G.achieve('autoland'); if (SKY.TaxiGate) SKY.TaxiGate.offerAfterLanding(); }
     return out;
   }
   const tgtV = s > 2500 ? 74 : 68;

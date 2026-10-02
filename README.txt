@@ -1,4 +1,4 @@
-GROK SKY - a voxel airliner sandbox (v3.5)
+GROK SKY - a voxel airliner sandbox (v3.5.1)
 ==========================================
 
 GROK SKY is a fully destructible voxel airliner sandbox that runs in a web
@@ -48,6 +48,9 @@ js/minigames.js    the place panel: food menus (eat here / to go), souvenir shop
 js/autoland.js 3.5 AUTO LAND: approach-cone detection for every runway end, guided glide path, flare, rollout and stop
 js/cars.js     3.5 cars: rental lots and counters, ambient parked and cruising cars, stealing, wanted stars, police AI, busted/escape
 js/clinic.js   3.5 airport clinics (one enterable place per airport) and the doctor mini-game
+js/taxigate.js 3.5.1 TAXI TO GATE: taxi network per airport, route planner to the nearest free gate, kinematic
+               taxi guidance, apron-vehicle crossing rules, dashed ground path with arrows, HUD button
+js/jail.js     3.5.1 GROK JAIL: arrest -> cartoon cell panel (bail / wait it out / spoon-dig escape minigame).
 js/player.js   the player (on foot, seated, piloting, falling or on a parachute), tools, grab and throw,
                extinguisher, all interactions, cooking and serving, cockpit code
 js/game.js     main loop, cameras, HUD, events, achievements, menus, fast travel, game over
@@ -60,7 +63,8 @@ On foot:   WASD move, mouse look, Space jump (or open your parachute while falli
            X drop, 1/2/3 to pick HANDS / HAMMER / CROWBAR, V or C to switch between
            first and third person
 Piloting:  W/S pitch (nose down/up), A/D roll, Q/E yaw (rudder), Shift/Ctrl throttle up/down,
-           G gear, Z flaps, T autopilot, B brakes, V camera (chase or cockpit),
+           G gear (on the ground at an airport, slow or stopped: G = TAXI TO GATE; G again stops it),
+           Z flaps, T autopilot, B brakes, V camera (chase or cockpit),
            mouse to orbit the chase camera, F to leave the seat (Space also works once
            the plane has stopped on the ground)
 Any time:  Tab map and fast travel, P add a passenger, H help, M mute, Esc pause
@@ -71,10 +75,28 @@ Left side    joystick: move on foot, or pitch and roll in the pilot seat
 Right side   drag to look (or to orbit the chase camera)
 Buttons      ACTION (use tool, throw, spray), USE (interact), GRAB, JUMP
 Top bar      tool switch, camera, map, pause
-Piloting     THR throttle slider, plus GEAR, FLAP, AP, BRK and rudder ◀ ▶ buttons
+Piloting     THR throttle slider, plus GEAR, FLAP, AP, BRK and rudder ◀ ▶ buttons; big AUTO LAND and
+             TAXI TO GATE buttons appear when they can be used
 
 THINGS TO DO
 ------------
+NEW IN 3.5.1
+* TAXI TO GATE: on the ground at any of the 7 airports, slow (under ~20 kts) or stopped on a runway, taxiway
+  or the apron, a big blue TAXI TO GATE button appears (desktop: press G). It is offered with a prompt as soon
+  as an auto-land finishes. The plane picks the nearest free gate, turns off the runway at the next exit (or
+  turns around if it rolled past the last one), follows the taxiways and the apron lane and stops on the gate's
+  stop bar: the jet bridge connects and the L1 door opens. Speeds are realistic: about 23 kts on long
+  straights, 8 kts in the turns and walking pace into the gate. It waits for baggage trains and fuel trucks
+  crossing its path. The banner shows "Taxiing to LAX Gate A1", the distance left and the speed, and a dashed
+  green path with yellow arrows is drawn on the ground (and on the minimap). Any throttle, stick, rudder or
+  brake input, G again, or tapping the banner gives control back. On the ground T (AP) after a landing uses
+  the same planner.
+* GROK JAIL: getting busted no longer costs a fine. The cuffs sparkle, you're walked to the airport police
+  office and a cartoon cell opens (cellmate Grizz tells terrible plane jokes). Choose PAY BAIL (18 coins, out
+  at once), WAIT IT OUT (36 s, always available, even with no coins) or ESCAPE: dig with a spoon by tapping
+  DIG (desktop: Space) only while the guard looks away. Success = free with 1 wanted star; caught or out of time
+  = +10 s on the clock (capped at 75 s), and bail/wait still work. Desktop keys 1/2/3. Achievements: Jailbird,
+  The Great Escape, Model Inmate. Toasts are held while the jail panel is open.
 NEW IN 3.5
 * AUTO LAND: when you fly toward any runway roughly lined up, a big orange AUTO LAND button appears
   (desktop: press L). It names the runway (for example "LAX 36R"), flies the approach, flares, touches down

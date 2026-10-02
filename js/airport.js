@@ -342,6 +342,7 @@ A.groundAP = (pl) => {
   const nearRwyStart = Math.abs(pl.pos.x - apt.ax) < 10 && pl.pos.z > apt.zs - 200 && Math.abs(wrap(pl.heading() * Math.PI / 180)) < 0.25;
   if (nearRwyStart) { pl.ap.on = true; pl.ap.by = 'player'; pl.ap.mode = 'takeoff'; pl.ap.rwyX = apt.ax; pl.ap.hdg = 0; pl.ap.alt = 1900; pl.ap.dest = SKY.Game.nextCity(apt.c); SKY.toast('🛫 Autopilot takeoff from ' + apt.code, 'good'); return true; }
   const g = A.landedAt === apt ? freeGate(apt) : null;
+  if (g && SKY.TaxiGate) { const o = SKY.TaxiGate.evaluate(); if (o && SKY.TaxiGate.engage(o)) return true; } // 3.5.1: gate auto-taxi uses the TAXI TO GATE planner
   A.taxi = g ? A.routeToGate(apt, pl.pos, g) : A.routeToRunway(apt, pl.pos);
   pl.ap.on = true; pl.ap.by = 'player'; pl.ap.mode = 'taxi';
   SKY.toast(g ? '🚕 Auto-taxi to ' + apt.code + ' gate ' + g.name : '🚕 Auto-taxi to runway ' + apt.rwys[0].s + ' at ' + apt.code, 'good');

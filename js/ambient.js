@@ -62,6 +62,10 @@ Amb.initCity = (c) => {
 const TD_ = () => 40;
 function offsetPts(pts, off) { const out = []; for (let i = 0; i < pts.length; i++) { const a = pts[Math.max(0, i - 1)], b = pts[Math.min(pts.length - 1, i + 1)]; const dx = b[0] - a[0], dz = b[1] - a[1], l = Math.hypot(dx, dz) || 1; out.push([pts[i][0] - dz / l * off, pts[i][1] + dx / l * off]); } return out; }
 Amb.dropCity = (c) => { c.amb = null; };
+// 3.5.1: positions of every apron vehicle box (baggage tugs / carts / fuel trucks) of a city, for the taxi-to-gate assist
+function trainBoxes(t, s0, out) { out = out || []; const q = {}; const n = t.kind === 'fuel' ? 2 : 4; for (let k = 0; k < n; k++) { const s = (s0 - k * (t.kind === 'fuel' ? 4.2 : 3.4) + t.lp.L) % t.lp.L; along(t.lp, s, q); out.push([q.x, q.z]); } return out; }
+Amb.apronVehicles = (c, out, moving) => { out = out || []; const a = c && c.amb; if (!a || !a.trains) return out; for (const t of a.trains) if (!(moving && t.yielding)) trainBoxes(t, t.s, out); return out; };
+Amb.yieldFn = (boxes) => !!(SKY.TaxiGate && SKY.TaxiGate.vehicleYield(boxes));
 const _m = new THREE.Matrix4(), _p = {}, _c = new THREE.Color();
 Amb.update = (dt, cam) => {
   for (const c of W.cities) {
@@ -100,7 +104,8 @@ Amb.update = (dt, cam) => {
     if (a.trainMesh) {
       let q = 0;
       for (const t of a.trains) {
-        t.s = (t.s + (t.kind === 'fuel' ? 6 : 5) * dt) % t.lp.L;
+        const ns = (t.s + (t.kind === 'fuel' ? 6 : 5) * dt) % t.lp.L; // 3.5.1: wait for a taxiing plane beside / behind it
+        t.yielding = !!(Amb.yieldFn && SKY.TaxiGate && SKY.TaxiGate.active && Amb.yieldFn(trainBoxes(t, ns))); if (!t.yielding) t.s = ns;
         const n = t.kind === 'fuel' ? 2 : 4;
         for (let k = 0; k < n; k++) {
           const s = (t.s - k * (t.kind === 'fuel' ? 4.2 : 3.4) + t.lp.L) % t.lp.L; along(t.lp, s, _p);

@@ -15,6 +15,7 @@ addEventListener('keydown', (e) => {
   if (e.target && (e.target.tagName === 'INPUT')) return;
   if (e.code === 'Tab' || e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
   if (!I.keys[e.code] && KEYMAP[e.code]) I.edges[KEYMAP[e.code]] = true;
+  if (!I.keys[e.code] && e.code === 'KeyG') I.edges.gKey = true; // 3.5.1: G = TAXI TO GATE while that button is up
   I.keys[e.code] = true; setHold(e.code, true);
   SKY.Audio.init();
 });
@@ -80,5 +81,10 @@ I.bindTouch = function () {
 I.bindAutoLand = function () {
   const b = document.getElementById('albtn'); if (!b || b.bound) return; b.bound = true;
   b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); SKY.Audio.init(); I.edges.autoland = true; });
+};
+// 3.5.1 TAXI TO GATE button (desktop + touch): tap = engage, tap again while taxiing = stop
+I.bindTaxiGate = function () {
+  const b = document.getElementById('tgbtn'); if (!b || b.bound) return; b.bound = true;
+  b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); SKY.Audio.init(); if (!b.classList.contains('done')) I.edges.taxigate = true; });
 };
 })();
