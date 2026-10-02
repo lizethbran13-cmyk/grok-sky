@@ -1,5 +1,5 @@
-GROK SKY - a voxel airliner sandbox
-===================================
+GROK SKY - a voxel airliner sandbox (v3.5)
+==========================================
 
 GROK SKY is a fully destructible voxel airliner sandbox that runs in a web
 browser. You can fly it between six cartoon-sized cities (plus Area 51), each laid out like
@@ -45,6 +45,9 @@ js/places.js   enterable places engine: storefront facades + glowing door marker
 js/places_defs.js  the places of every zone (door positions, interiors, decks, food stands, pyramid climb)
 js/minigames.js    the place panel: food menus (eat here / to go), souvenir shops, slots, roulette,
                blackjack, GROK INVADERS arcade, claw machine, skee-ball, taiko, movie scene
+js/autoland.js 3.5 AUTO LAND: approach-cone detection for every runway end, guided glide path, flare, rollout and stop
+js/cars.js     3.5 cars: rental lots and counters, ambient parked and cruising cars, stealing, wanted stars, police AI, busted/escape
+js/clinic.js   3.5 airport clinics (one enterable place per airport) and the doctor mini-game
 js/player.js   the player (on foot, seated, piloting, falling or on a parachute), tools, grab and throw,
                extinguisher, all interactions, cooking and serving, cockpit code
 js/game.js     main loop, cameras, HUD, events, achievements, menus, fast travel, game over
@@ -72,6 +75,25 @@ Piloting     THR throttle slider, plus GEAR, FLAP, AP, BRK and rudder ◀ ▶ bu
 
 THINGS TO DO
 ------------
+NEW IN 3.5
+* AUTO LAND: when you fly toward any runway roughly lined up, a big orange AUTO LAND button appears
+  (desktop: press L). It names the runway (for example "LAX 36R"), flies the approach, flares, touches down
+  and brakes to a stop. Any stick, rudder, throttle, brake, gear, flaps or AP input hands control back to you.
+* RUN: hold Shift on desktop. On phones, tap the 🏃 RUN button to toggle it (it turns green) or hold it.
+  Running is 1.9x walking speed, with a lenient stamina bar that only shows while it isn't full.
+* CARS: every airport has a yellow CAR RENTAL counter by the parking lot. Rent a Grok Mini (10 coins),
+  a Sky Racer (25) or a Desert Cruiser (16). Drive with WASD (Space = handbrake, N = horn, F = exit).
+  On phones, the joystick steers (up = gas) and there are big GAS / BRAKE / EXIT / HORN pedals.
+  Holding brake stops the car and then reverses it. Park in any rental lot and EXIT to return the car.
+* STEAL: walk up to a parked or passing car and press STEAL to start a 2-second break-in. You get wanted
+  stars and police cruisers (flashing lights and siren) chase you. To clear the wanted level, stay more than
+  120 m from them for 10 s, hide indoors, or return the car to a rental lot. If they catch you while you're
+  stopped you're BUSTED: a fine of up to 15 coins and release at the airport police office.
+* CLINICS: every airport has a CLINIC with a red cross next to the rental lot. Step up to a patient and press
+  USE. Pick the symptom, pick the tool (bandage, ice pack, thermometer, medicine, splint or lotion), then drag
+  it onto the glowing spot or tap it. Rewards are 6-10 coins plus the achievements First Patient and
+  Doctor of the Skies (10 patients).
+
 * Fly: take off (rotate at about 130 kts), climb, turn, and land on any runway. The take-off
   direction is north. Stall, flaps, gear and brakes all matter. Touch down gently: keep the HUD
   V/S under about -4,000 fpm. Harder than that collapses the gear. Hitting the ground, water or a building

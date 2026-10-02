@@ -11,7 +11,10 @@ const ACH = {
   enter: ['🚪', 'Come On In', 'Walk into a place in a city'], explorer: ['🧭', 'City Explorer', 'Enter a place in all 7 zones'], jackpot: ['🎰', 'JACKPOT!', 'Hit 7-7-7 on a slot machine'],
   arcade: ['👾', 'Arcade Legend', 'Score 500+ on GROK INVADERS'], foodie: ['🌮', 'Foodie', 'Eat in 3 different cities'], souvenir: ['🎁', 'Souvenir Hunter', 'Buy a souvenir'],
   deck: ['🏙', 'Top of the World', 'Ride an elevator to an observation deck'], monalisa: ['😉', 'She Winked', 'Gaze at the Mona Lisa'], xfiles: ['👽', 'The Truth Is In There', 'Get into the Area 51 lab'],
-  summit: ['🔺', 'Summit', 'Climb the Pyramid of the Sun']
+  summit: ['🔺', 'Summit', 'Climb the Pyramid of the Sun'],
+  autoland: ['🤖', 'Hands Free', 'Complete an AUTO LAND'], sprinter: ['🏃', 'Sprinter', 'Run for 4 seconds'], rental: ['🔑', 'Road Trip', 'Rent a car at an airport'],
+  joyride: ['🔓', 'Joyride', 'Steal a car (cartoon crime!)'], busted: ['🚔', 'Busted!', 'Get caught by the police'], getaway: ['😎', 'Getaway Driver', 'Lose the police'],
+  patient: ['🩺', 'First Patient', 'Treat a patient at an airport clinic'], doctor: ['👩‍⚕️', 'Doctor of the Skies', 'Treat 10 patients']
 };
 const G = SKY.Game = {
   state: 'title', settings: { invert: false, muted: false }, ach: {}, stats: null, camPos: new THREE.Vector3(), camOrbit: { yaw: 0, pitch: 0, t: 0 }, shakeAmt: 0, testMode: false,
@@ -31,7 +34,8 @@ const G = SKY.Game = {
     this.plane = new SKY.Plane(sc);
     SKY.Crowd.init(this.plane, sc); SKY.Props.init(this.plane, sc);
     SKY.Player.init(this.plane, sc, this.fx, this.camera);
-    I.bindCanvas(r.domElement); I.bindTouch();
+    I.bindCanvas(r.domElement); I.bindTouch(); if (I.bindAutoLand) I.bindAutoLand();
+    const ce = $('carexit'); if (ce) ce.addEventListener('click', (e) => { e.stopPropagation(); if (SKY.Cars && SKY.Cars.cur) SKY.Cars.exit(); });
     addEventListener('resize', () => this.resize()); this.resize();
     this.buildUI();
     if (SKY.isTouch) document.body.classList.add('touchdev');
@@ -59,6 +63,7 @@ const G = SKY.Game = {
     const pl = this.plane;
     for (const d of SKY.World.debris) d.dispose(); SKY.World.debris = [];
     if (SKY.Places) SKY.Places.reset();
+    if (SKY.Cars) SKY.Cars.reset(); if (SKY.AutoLand) SKY.AutoLand.reset();
     this.fx.clear();
     if (SKY.Airport) SKY.Airport.reset();
     SKY.World.ensureCity(city);
@@ -83,6 +88,8 @@ const G = SKY.Game = {
     const A = SKY.Airport;
     if (this.state === 'over' || pl.crashed || pl.integrity < 0.5 || P.dead) { this.startMode = 'pilot'; this.start(id, 'pilot'); if (mode === 'approach') { pl.place(city, 'approach'); this.wasAirborne = true; } else if (mode === 'gate' && A) A.placeAtGate(city); this.closeMap(); return; }
     if (A) A.reset();
+    if (SKY.AutoLand) SKY.AutoLand.reset();
+    if (SKY.Cars && SKY.Cars.cur) { SKY.Cars.cur = null; P.mode = 'foot'; }
     SKY.World.ensureCity(city);
     SKY.Crowd.list = SKY.Crowd.list.filter((p) => p.frame === 'plane');
     SKY.Props.list = SKY.Props.list.filter((p) => { if (p.frame === 'world') { this.scene.remove(p.mesh); return false; } return true; });
@@ -115,7 +122,10 @@ const G = SKY.Game = {
     if (this.ui) { I.move.x = 0; I.move.y = 0; I.look.dx = 0; I.look.dy = 0; I.edges = {}; I.holds.action = false; }
     const PLc = SKY.Places; // place transitions / telescopes freeze walking
     if (PLc && PLc.preUpdate(dt, I)) { I.move.x = 0; I.move.y = 0; I.edges = {}; I.holds.action = false; I.holds.jump = false; if (!PLc.scope) { I.look.dx = 0; I.look.dy = 0; } }
+    const Cars = SKY.Cars, AL = SKY.AutoLand; // 3.5: car break-in bar / busted screen freeze input too
+    if (Cars && Cars.preUpdate(dt, I)) { I.move.x = 0; I.move.y = 0; I.edges = {}; I.holds.action = false; I.holds.jump = false; I.holds.gas = false; I.holds.brake = false; }
     P.update(dt, I);
+    if (AL) AL.update(dt, I);
     if (SKY.Mini) SKY.Mini.update(dt);
     // plane control source
     const pilots = Crowd.pilots();
@@ -127,8 +137,10 @@ const G = SKY.Game = {
     else { pl.ap.on = false; ctl = { pitch: -0.04 + Math.sin(this.time * 0.13) * 0.05, roll: Math.sin(this.time * 0.07) * 0.12, yaw: 0 }; }
     if (!pilots.length && pl.ap.by === 'pilots' && !playerFlying && pl.ap.on) { if (this.apDisc < 0) this.apDisc = 15; this.apDisc -= dt; if (this.apDisc <= 0) { pl.ap.on = false; this.apDisc = -1; SKY.toast('⚠ AUTOPILOT DISCONNECT — nobody is flying!', 'bad'); SKY.Audio.play('error'); } }
     else if (pilots.length) this.apDisc = -1;
+    if (AL && AL.active) { if (playerFlying) ctl = AL.control(dt); else AL.cancel('silent'); }
     if (pl.crashed) { ctl = { pitch: 0, roll: 0, yaw: 0 }; pl.throttle = 0; }
     pl.update(dt, ctl, this.fx);
+    if (AL && AL.active) AL.post(dt);
     if (SKY.Airport) SKY.Airport.update(dt);
     pl.updateCabin(dt, this.fx);
     if (pl.lastDetach) for (const reg of pl.lastDetach) this.transferRegion(reg);
@@ -140,6 +152,7 @@ const G = SKY.Game = {
     SKY.World.update(dt, this.camPos, P.frame === 'world' ? P.pos : pl.pos);
     if (SKY.Places) SKY.Places.update(dt, this.camPos);
     if (SKY.Ambient) SKY.Ambient.update(dt, this.camPos);
+    if (Cars) Cars.update(dt);
     this.fx.update(dt, new THREE.Vector3(0, -SKY.GRAV, 0), (x, y, z) => SKY.World.heightAt(x, z) + 0.05);
     this.events(dt);
     this.updateCamera(dt);
@@ -185,7 +198,8 @@ const G = SKY.Game = {
     const cam = this.camera, pl = this.plane, P = SKY.Player;
     const q = new THREE.Quaternion(), e = new THREE.Euler(0, 0, 0, 'YXZ');
     if (this.camOverride) { const o = this.camOverride; cam.position.set(o[0], o[1], o[2]); cam.up.set(0, 1, 0); cam.lookAt(o[3], o[4], o[5]); this.camPos.copy(cam.position); return; } // test/photo hook
-    if (P.dead && P.frame === 'world') { const t = this.time * 0.2; cam.position.set(P.pos.x + Math.cos(t) * 12, P.pos.y + 6, P.pos.z + Math.sin(t) * 12); cam.lookAt(P.pos); }
+    if (P.mode === 'drive' && SKY.Cars && SKY.Cars.cur) { SKY.Cars.camera(cam, dt, this.camOrbit); }
+    else if (P.dead && P.frame === 'world') { const t = this.time * 0.2; cam.position.set(P.pos.x + Math.cos(t) * 12, P.pos.y + 6, P.pos.z + Math.sin(t) * 12); cam.lookAt(P.pos); }
     else if (P.mode === 'pilot' && P.pilotCam === 'chase' && P.frame === 'plane') {
       const O = this.camOrbit; if (O.t > 0) O.t -= dt; else { O.yaw *= 1 - 2 * dt; O.pitch *= 1 - 2 * dt; }
       const f = pl.axes().f; const hdg = Math.atan2(-f.x, -f.z);
@@ -228,7 +242,7 @@ const G = SKY.Game = {
   flash(n) { const f = $('flash'); f.style.opacity = Math.min(0.6, n / 30 + 0.15); clearTimeout(this._fl); this._fl = setTimeout(() => { f.style.opacity = 0; }, 120); },
   renderPlayerBody(wp, ww) {
     const P = SKY.Player; const showTP = P.camMode === 'tp' || (P.mode === 'pilot' && P.pilotCam === 'chase');
-    if (!showTP || P.dead) return;
+    if (!showTP || P.dead || P.mode === 'drive') return;
     const b = P.body; b.frame = P.frame; b.pos.copy(P.pos); b.yaw = P.yaw;
     b.state = P.mode === 'seat' || P.mode === 'pilot' ? 'sit' : (P.frame === 'world' && P.chute ? 'para' : (Math.hypot(P.vel.x, P.vel.z) > 0.5 ? 'walk' : 'idle'));
     b.masked = P.masked; b.woozy = P.woozy; b.carry = !!P.held; b.panic = 0;
@@ -240,7 +254,10 @@ const G = SKY.Game = {
     const pl = this.plane, P = SKY.Player; const A = SKY.Audio; if (!A.ready) return;
     const inside = P.frame === 'plane' && !(P.mode === 'pilot' && P.pilotCam === 'chase');
     const dist = this.camPos.distanceTo(pl.pos);
-    A.setEngine(pl.throttle * ((pl.engEff[0] + pl.engEff[1]) / 2), !pl.crashed && dist < 3000, inside);
+    const car = SKY.Cars && SKY.Cars.cur;
+    if (car) A.setEngine(clamp(Math.abs(car.speed) / car.T.vmax, 0, 1) * 0.7 + 0.1, true, true);
+    else A.setEngine(pl.throttle * ((pl.engEff[0] + pl.engEff[1]) / 2), !pl.crashed && dist < 3000, inside);
+    if (A.setSiren) A.setSiren(SKY.Cars ? SKY.Cars.sirenLvl : 0);
     const spd = pl.speed();
     let wind = 0;
     if (P.frame === 'world' && !P.grounded) wind = clamp(P.vel.length() / 60, 0, 1);
@@ -311,6 +328,7 @@ const G = SKY.Game = {
       if (SKY.Places) SKY.Places.labels(this.camera, (pos, txt) => SKY.Labels.add(pos, this.camera, this.W, this.H, null, txt, '#222'));
     }
     SKY.Labels.end();
+    if (SKY.Cars && (this.state === 'play' || this.state === 'over' || this.state === 'paused')) SKY.Cars.render(this.camPos);
     this.renderer.render(this.scene, this.camera);
     this.hudT -= dt; if (this.hudT <= 0 && this.state !== 'title') { this.hudT = 0.1; this.updateHUD(); }
   },
@@ -333,7 +351,7 @@ const G = SKY.Game = {
     const nc = SKY.World.nearestCity((P.frame === 'world' ? P.pos : pl.pos).x, (P.frame === 'world' ? P.pos : pl.pos).z);
     const apH = SKY.Airport && SKY.Airport.nearest((P.frame === 'world' ? P.pos : pl.pos).x, (P.frame === 'world' ? P.pos : pl.pos).z, 1500);
     $('h-city').textContent = (nc.dist < 6500 ? '📍 ' + nc.city.name + (apH ? ' · ✈ ' + apH.code : '') : '🌐 ' + (nc.dist / 1000).toFixed(1) + ' km from ' + nc.city.name);
-    const modeTxt = P.frame === 'world' ? (P.chute ? '🪂 PARACHUTING' : P.grounded ? '🚶 ON FOOT (ground)' : '😱 FALLING') : P.mode === 'pilot' ? '🧑‍✈️ PILOT' : P.mode === 'seat' ? '💺 SEATED' : '🚶 ON FOOT (cabin)';
+    const modeTxt = P.mode === 'drive' && SKY.Cars && SKY.Cars.cur ? '🚗 DRIVING ' + SKY.Cars.cur.T.name : P.frame === 'world' ? (P.chute ? '🪂 PARACHUTING' : P.grounded ? (P.running ? '🏃 RUNNING' : '🚶 ON FOOT (ground)') : '😱 FALLING') : P.mode === 'pilot' ? '🧑‍✈️ PILOT' : P.mode === 'seat' ? '💺 SEATED' : '🚶 ON FOOT (cabin)';
     const PLh = SKY.Places, inside = PLh && PLh.cur;
     $('h-mode').textContent = inside ? (inside.kind === 'deck' ? '🏙 ' : '🏠 INSIDE: ') + inside.place.name + ' · 🪙 ' + PLh.coins() : modeTxt + (P.frame === 'world' && PLh ? ' · 🪙 ' + PLh.coins() : '');
     $('i-alt').textContent = Math.max(0, Math.round(ft / 10) * 10).toLocaleString() + ' ft';
@@ -353,7 +371,7 @@ const G = SKY.Game = {
     $('toolbar').innerHTML = tb + (P.held ? `<span class="sel">✋ ${P.held.person ? P.held.person.name : P.held.meal ? 'Meal: ' + P.held.meal.emoji + ' ' + P.held.meal.q : P.held.kind}</span>` : '') + (pl.codeFound ? `<span class="code">🔑 ${pl.code}</span>` : '');
     // prompt
     const pr = $('prompt');
-    if (P.target && P.mode !== 'pilot' && !this.ui && !(SKY.Places && (SKY.Places.scope || SKY.Places.trans))) { pr.textContent = (SKY.isTouch ? '👆 ' : '[F] ') + P.target.label; pr.style.display = 'block'; pr.classList.toggle('enter', /^(🚪|🛗|🍽|🪂)/u.test(P.target.label)); }
+    if (P.target && P.mode !== 'pilot' && !this.ui && !(SKY.Places && (SKY.Places.scope || SKY.Places.trans))) { pr.textContent = (SKY.isTouch ? '👆 ' : '[F] ') + P.target.label; pr.style.display = 'block'; pr.classList.toggle('enter', /^(🚪|🛗|🍽|🪂|🚗|🔓|🩺)/u.test(P.target.label)); }
     else if (P.mode === 'pilot') { pr.textContent = SKY.isTouch ? 'USE (hand) = leave seat' : '[F] leave seat  [V] camera  [T] autopilot  [G] gear  [Z] flaps  [B] brake'; pr.style.display = this.time % 20 < 6 ? 'block' : 'none'; }
     else pr.style.display = 'none';
     // alerts
@@ -372,12 +390,23 @@ const G = SKY.Game = {
     $('vignette').style.opacity = P.o2 < 50 ? (1 - P.o2 / 50) * 0.85 : 0;
     $('woozy').style.opacity = P.woozy > 0 ? 0.25 : 0;
     document.body.classList.toggle('pilot', P.mode === 'pilot');
+    // 3.5: auto-land button / banner, cars HUD, run button state, stamina
+    document.body.classList.toggle('foot', P.mode === 'foot' && !P.dead);
+    document.body.classList.toggle('worldf', P.frame === 'world' && P.mode !== 'pilot'); // on the ground / driving: hide plane-only HUD
+    document.body.classList.toggle('running', !!P.running || !!I.runOn);
+    const rb = $('trun'); if (rb) { rb.classList.toggle('active', !!I.runOn); rb.classList.toggle('going', !!P.running); }
+    const stb = $('stamina'); if (stb) { const show = P.mode === 'foot' && P.stam != null && P.stam < 99; stb.style.display = show ? 'block' : 'none'; if (show) { stb.firstElementChild.style.width = Math.round(P.stam) + '%'; stb.classList.toggle('low', !!P.winded); } }
+    const alb = $('albtn'); const alh = SKY.AutoLand && SKY.AutoLand.hud();
+    if (alb) { if (alh && this.state === 'play') { alb.style.display = 'block'; alb.className = alh.mode; alb.innerHTML = alh.mode === 'active' ? alh.text + '<small>' + (SKY.isTouch ? 'move the stick to take over' : 'any flight key takes over') + '</small>' : alh.text + '<small>' + (SKY.isTouch ? 'TAP to engage' : 'press [L] or click') + '</small>'; } else alb.style.display = 'none'; }
+    if (SKY.Cars) SKY.Cars.hud();
     // hint/objective
     $('h-obj').textContent = this.objectiveHint();
     this.drawMinimap();
   },
   objectiveHint() {
     const pl = this.plane, P = SKY.Player;
+    const ch = SKY.Cars && SKY.Cars.hint(); if (ch && !(SKY.Places && SKY.Places.cur)) return ch;
+    if (SKY.AutoLand && SKY.AutoLand.active) return SKY.AutoLand.hud().text;
     const ph = SKY.Places && SKY.Places.hintText(); if (ph) return ph;
     const A = SKY.Airport;
     if (A) {
@@ -533,7 +562,7 @@ const G = SKY.Game = {
     $('t-help').onclick = () => $('help').classList.add('show');
     addEventListener('keydown', (e) => { if (this.ui === 'keypad') { if (/^Digit\d$/.test(e.code)) this.keypadPress(e.code.slice(5)); if (e.code === 'Enter') this.keypadPress('E'); if (e.code === 'Backspace') this.keypadPress('C'); } if (this.ui === 'cook' && e.code === 'Enter' && this.cookSel && this.cookSel.length) this.startCooking(); });
   },
-  toTitle() { if (SKY.Places) SKY.Places.reset(); this.state = 'title'; this.hideScreens(); this.closeUI(); $('title').classList.add('show'); document.body.classList.remove('playing', 'pilot'); this.unlockPointer(); this.plane.reset({ city: SKY.World.city('LA'), mode: 'cruise' }); SKY.Crowd.populate(0, true); SKY.Props.clear(); SKY.Audio.setAlarm(false); },
+  toTitle() { if (SKY.Places) SKY.Places.reset(); if (SKY.Cars) SKY.Cars.reset(); if (SKY.AutoLand) SKY.AutoLand.reset(); if (SKY.Audio.setSiren) SKY.Audio.setSiren(0); document.body.classList.remove('drive', 'foot', 'running'); this.state = 'title'; this.hideScreens(); this.closeUI(); $('title').classList.add('show'); document.body.classList.remove('playing', 'pilot'); this.unlockPointer(); this.plane.reset({ city: SKY.World.city('LA'), mode: 'cruise' }); SKY.Crowd.populate(0, true); SKY.Props.clear(); SKY.Audio.setAlarm(false); },
   // -------------------------------------------------------------- test hooks
   step(n, inp) {
     inp = inp || {};

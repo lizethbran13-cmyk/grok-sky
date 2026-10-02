@@ -185,3 +185,99 @@ button.big { font-size: 20px; padding: 12px 22px; }
 .pcity button { padding: 5px 8px; font-size: 12px; }
 .pcity button.seen { border-color: rgba(87,255,122,.6); }
 @media (max-height: 500px) { #placePanel { padding: 8px 12px; } .reels span { width: 52px; height: 52px; font-size: 32px; } #inv { width: 180px; height: 210px; } button.pad { padding: 6px 0; } .prow { padding: 3px 6px; margin: 2px 0; } .pp-head h2 { font-size: 15px; } }
+
+/* ================= 3.5: auto-land · run · cars & police · clinic ================= */
+.logo-s .ver { font-style: normal; font-size: 10px; background: #ff6a1a; color: #fff; border-radius: 6px; padding: 1px 5px; margin-left: 5px; vertical-align: middle; letter-spacing: 0; }
+.vertag { display: inline-block; margin: -4px 0 6px; background: linear-gradient(90deg, #ff6a1a, #ffb03a); color: #fff; font-weight: 800; font-size: 13px; border-radius: 12px; padding: 4px 12px; box-shadow: 0 2px 10px rgba(255,106,26,.5); }
+/* AUTO LAND: big pill, top centre (phones: tap it; desktop: L or click) */
+#albtn { position: fixed; left: 50%; top: 21%; transform: translateX(-50%); z-index: 13; display: none; max-width: calc(100% - 24px); min-width: 230px; padding: 12px 22px; border-radius: 30px; font-size: 19px; font-weight: 900; color: #fff; border: 3px solid #ffe08a; background: linear-gradient(180deg, #ff9a3c, #e8581c); box-shadow: 0 0 18px rgba(255,170,60,.85); pointer-events: auto; cursor: pointer; white-space: nowrap; touch-action: manipulation; }
+#albtn small { display: block; font-size: 11px; font-weight: 700; opacity: .9; margin-top: 2px; }
+#albtn.offer { animation: ppulse 1.1s ease-in-out infinite; }
+#albtn.active { background: linear-gradient(180deg, #2fb36a, #17804a); border-color: #b9ffd3; box-shadow: 0 0 14px rgba(60,255,140,.6); font-size: 16px; padding: 9px 18px; cursor: default; }
+body:not(.playing) #albtn { display: none !important; }
+/* wanted stars */
+#wanted { position: absolute; left: 50%; top: calc(30px + env(safe-area-inset-top)); transform: translateX(-50%); display: none; text-align: center; background: rgba(10,15,40,.72); border: 2px solid rgba(255,255,255,.25); border-radius: 14px; padding: 3px 14px 5px; z-index: 6; }
+#wanted b { font-size: 30px; color: #ffd23d; letter-spacing: 3px; text-shadow: 0 0 10px rgba(255,210,60,.8), 0 2px 2px #000; animation: wblink .7s steps(2) infinite; }
+#wanted b i { font-style: normal; color: rgba(255,255,255,.22); text-shadow: none; }
+#wanted small { display: block; font-size: 11px; font-weight: 700; }
+#wanted .bust { position: relative; margin-top: 3px; height: 16px; background: rgba(255,255,255,.15); border-radius: 8px; overflow: hidden; font-size: 11px; font-weight: 900; line-height: 16px; }
+#wanted .bust span { position: absolute; left: 0; top: 0; bottom: 0; background: linear-gradient(90deg, #3a6bff, #ff3a3a); z-index: -1; }
+#wanted[style*="block"] + #alerts { top: 102px; }
+@keyframes wblink { 50% { color: #fff3a8; } }
+/* break-in bar */
+#carbar { position: absolute; left: 50%; top: 44%; transform: translateX(-50%); display: none; background: rgba(10,15,40,.8); border: 2px solid #ffd23d; border-radius: 12px; padding: 8px 14px; font-weight: 900; font-size: 16px; text-align: center; min-width: 220px; }
+#carbar div { height: 14px; background: rgba(255,255,255,.15); border-radius: 7px; overflow: hidden; margin-top: 6px; }
+#carbar span { display: block; height: 100%; background: linear-gradient(90deg, #ffd23d, #ff6a1a); }
+#carspd { position: absolute; left: 50%; bottom: calc(52px + env(safe-area-inset-bottom)); transform: translateX(-50%); display: none; background: rgba(0,0,0,.55); border-radius: 12px; padding: 3px 12px; font-weight: 900; font-size: 18px; font-variant-numeric: tabular-nums; }
+body.drive #carspd { display: block; }
+body.touchdev #carspd { bottom: calc(76px + env(safe-area-inset-bottom)); }
+#carexit { position: fixed; right: 18px; bottom: 18px; z-index: 12; display: none; width: 76px; height: 76px; border-radius: 50%; font-size: 26px; background: rgba(200,60,40,.8); border: 3px solid #fff; color: #fff; pointer-events: auto; cursor: pointer; flex-direction: column; align-items: center; justify-content: center; line-height: 1; }
+#carexit small { font-size: 10px; font-weight: 800; }
+body.drive.playing:not(.touchdev) #carexit { display: flex; }
+body.drive #cross { display: none; }
+/* stamina (only while it isn't full) */
+#stamina { position: absolute; left: 50%; bottom: calc(46px + env(safe-area-inset-bottom)); transform: translateX(-50%); width: 120px; height: 8px; border-radius: 4px; background: rgba(0,0,0,.45); overflow: hidden; display: none; }
+#stamina i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #57ff7a, #b8ff57); }
+#stamina.low i { background: #ff9a3c; }
+body.touchdev #stamina { left: auto; transform: none; right: calc(160px + env(safe-area-inset-right)); bottom: calc(94px + env(safe-area-inset-bottom)); width: 76px; }
+/* busted overlay */
+#busted { position: fixed; inset: 0; z-index: 35; display: none; align-items: center; justify-content: center; background: radial-gradient(circle, rgba(40,60,200,.35), rgba(200,30,30,.45)); animation: bflash .5s steps(2) infinite; pointer-events: none; }
+#busted.show { display: flex; }
+#busted .bcard { background: rgba(10,15,40,.9); border: 4px solid #ffd23d; border-radius: 20px; padding: 16px 28px; text-align: center; transform: rotate(-3deg); }
+#busted .btitle { font-size: 52px; font-weight: 900; color: #ffd23d; text-shadow: 3px 3px 0 #c62828; letter-spacing: 2px; }
+#busted .bsub { font-size: 16px; font-weight: 700; margin-top: 4px; }
+@keyframes bflash { 50% { background: radial-gradient(circle, rgba(200,30,30,.35), rgba(40,60,200,.45)); } }
+/* touch: RUN + driving pedals */
+#trun { position: absolute; right: calc(160px + env(safe-area-inset-right)); bottom: calc(12px + env(safe-area-inset-bottom)); width: 76px; height: 76px; display: none; pointer-events: auto; font-size: 28px; }
+#trun small { font-size: 11px; font-weight: 900; }
+#trun.active { background: rgba(40,190,90,.85); border-color: #b9ffd3; box-shadow: 0 0 14px rgba(60,255,140,.8); }
+#trun.going { transform: scale(1.06); }
+body.foot:not(.drive) #trun { display: flex; }
+#tdrive { position: absolute; right: calc(12px + env(safe-area-inset-right)); bottom: calc(12px + env(safe-area-inset-bottom)); display: none; grid-template-columns: 78px 78px; grid-template-rows: 64px 88px; gap: 10px; pointer-events: auto; }
+#tdrive .tb { width: 78px; height: 64px; border-radius: 16px; font-size: 24px; }
+#tdrive .tb small { font-size: 11px; font-weight: 900; }
+#tdrive .gas { grid-column: 2; grid-row: 2; height: 88px; background: rgba(40,170,80,.8); border-color: #b9ffd3; }
+#tdrive .brk { grid-column: 1; grid-row: 2; height: 88px; background: rgba(200,50,40,.75); }
+#tdrive #tcarexit { grid-column: 1; grid-row: 1; background: rgba(255,106,26,.75); }
+body.drive #tdrive { display: grid; }
+body.drive #tbtns { display: none; }
+body.drive #ttop .ts[data-act="toolNext"] { display: none; }
+/* doctor mini-game */
+.dr { display: flex; gap: 10px; align-items: flex-start; }
+#dr-cv { width: 190px; height: 247px; border-radius: 12px; border: 3px solid #8fd3ff; background: #eaf6ff; touch-action: none; flex-shrink: 0; }
+.dr-side { flex: 1; text-align: left; }
+.dr-say { font-size: 13px; background: rgba(255,255,255,.08); border-radius: 10px; padding: 6px 8px; margin: 0 0 6px; }
+.dr-q { font-weight: 900; font-size: 14px; margin: 4px 0 6px; color: #ffd23d; }
+.dr-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.dr-grid.t6 { grid-template-columns: 1fr 1fr 1fr; }
+.dr-b { padding: 10px 6px; font-size: 13px; font-weight: 800; min-height: 46px; touch-action: manipulation; }
+.dr-grid.t6 .dr-b { font-size: 24px; display: flex; flex-direction: column; align-items: center; }
+.dr-b small { font-size: 10px; font-weight: 800; }
+.dr-b.wrong { opacity: .35; text-decoration: line-through; border-color: #ff5252; }
+.dr-prog { height: 18px; background: rgba(255,255,255,.12); border-radius: 9px; overflow: hidden; margin-top: 8px; }
+.dr-prog span { display: block; height: 100%; background: linear-gradient(90deg, #57ff7a, #2fb36a); transition: width .1s; }
+.swatch { display: inline-block; width: 11px; height: 11px; border-radius: 3px; vertical-align: -1px; border: 1px solid rgba(255,255,255,.6); }
+@media (max-height: 500px) { #dr-cv { width: 142px; height: 185px; } .dr-b { min-height: 38px; padding: 6px 4px; } #albtn { top: 19%; font-size: 17px; padding: 8px 18px; } #busted .btitle { font-size: 40px; } }
+/* phones in portrait: keep the new buttons clear of the existing HUD */
+@media (orientation: portrait) and (max-width: 600px) {
+  body.touchdev #minimap { width: 96px; height: 96px; }
+  body.touchdev #ttop { right: calc(10px + env(safe-area-inset-right)); top: calc(112px + env(safe-area-inset-top)); flex-direction: column; }
+  body.touchdev #toasts { top: 290px; width: calc(100% - 80px); right: 66px; }
+  body.touchdev #vitals { left: calc(10px + env(safe-area-inset-left)); top: calc(80px + env(safe-area-inset-top)); bottom: auto; width: 150px; }
+  body.touchdev #trun { right: calc(12px + env(safe-area-inset-right)); bottom: calc(160px + env(safe-area-inset-bottom)); }
+  body.touchdev #stamina { right: calc(12px + env(safe-area-inset-right)); bottom: calc(242px + env(safe-area-inset-bottom)); }
+  body.touchdev #albtn { top: calc(166px + env(safe-area-inset-top)); left: calc(10px + env(safe-area-inset-left)); transform: none; min-width: 0; white-space: normal; width: calc(100% - 82px); padding: 9px 12px; font-size: 17px; }
+  body.touchdev #wanted { top: calc(150px + env(safe-area-inset-top)); }
+  body.touchdev #carspd { bottom: calc(200px + env(safe-area-inset-bottom)); }
+  .dr { flex-direction: column; align-items: center; }
+}
+/* 3.5: plane-only HUD (flight panel, cabin/plane bars, tool bar while driving) is hidden on the ground and in cars */
+body.worldf #instr, body.drive #instr { display: none; }
+body.worldf #vitals .planebar, body.drive #vitals .planebar { display: none; }
+body.drive #toolbar { display: none; }
+/* 3.5 phones: toasts live top-left under the status text (clear of every control button), max 2, 2 lines each */
+body.touchdev #toasts { left: calc(10px + env(safe-area-inset-left)); right: auto; top: calc(74px + env(safe-area-inset-top)); width: min(260px, 34vw); align-items: flex-start; max-height: 58px; overflow: hidden; pointer-events: none; gap: 3px; }
+body.touchdev .toast { font-size: 10.5px; padding: 3px 7px; max-width: 100%; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+@media (orientation: portrait) and (max-width: 600px) {
+  body.touchdev #toasts { left: calc(10px + env(safe-area-inset-left)); top: calc(246px + env(safe-area-inset-top)); width: calc(100% - 80px); max-height: 70px; }
+}

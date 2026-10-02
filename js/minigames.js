@@ -13,6 +13,7 @@ function open(title, html, kind) {
   $('pp-title').textContent = title; $('pp-body').innerHTML = html; Mi.refresh(); $('placePanel').classList.add('show');
   return $('pp-body');
 }
+Mi.open = open;
 Mi.refresh = () => { const c = $('pp-coins'); if (c) c.textContent = coinsTxt(); };
 Mi.stop = () => { if (Mi.loop && Mi.loop.stop) Mi.loop.stop(); Mi.loop = null; Mi.kind = null; };
 Mi.close = () => { Mi.stop(); $('placePanel').classList.remove('show'); };

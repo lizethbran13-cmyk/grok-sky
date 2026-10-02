@@ -14,7 +14,7 @@
 
 <div id="hud">
   <div id="hud-tl">
-    <div class="logo-s">GROK<span>SKY</span></div>
+    <div class="logo-s">GROK<span>SKY</span><em class="ver">3.5</em></div>
     <div id="h-city">—</div>
     <div id="h-mode">—</div>
     <div id="h-obj"></div>
@@ -32,19 +32,27 @@
   <div id="vitals">
     <div class="bar"><label>❤️ HP</label><div><i id="v-hp" class="hp"></i></div><span id="v-hpt">100</span></div>
     <div class="bar"><label>🫁 O₂</label><div><i id="v-o2" class="o2"></i></div><span id="v-o2t">100</span></div>
-    <div class="bar"><label>🎈 CABIN</label><div><i id="v-cab" class="cab"></i></div><span id="v-cabt">100%</span></div>
-    <div class="bar"><label>✈️ PLANE</label><div><i id="v-int" class="int"></i></div><span id="v-intt">100%</span></div>
+    <div class="bar planebar"><label>🎈 CABIN</label><div><i id="v-cab" class="cab"></i></div><span id="v-cabt">100%</span></div>
+    <div class="bar planebar"><label>✈️ PLANE</label><div><i id="v-int" class="int"></i></div><span id="v-intt">100%</span></div>
   </div>
   <div id="toolbar"></div>
   <div id="cross"></div>
   <div id="prompt"></div>
+  <div id="wanted"></div>
   <div id="alerts"></div>
   <div id="toasts"></div>
   <div id="labels"></div>
   <div id="vignette"></div>
   <div id="woozy"></div>
   <div id="flash"></div>
+  <!-- 3.5: auto-land banner/button, wanted stars, car HUD, break-in bar, stamina, busted overlay -->
+  <div id="carbar"></div>
+  <div id="carspd"></div>
+  <div id="stamina"><i></i></div>
+  <button id="carexit" class="deskonly">🚪<small>EXIT</small></button>
 </div>
+<button id="albtn"></button>
+<div id="busted"><div class="bcard"><div class="btitle">🚔 BUSTED!</div><div class="bsub"></div></div></div>
 
 <div id="touch">
   <div id="joyzone"><div id="joybase"><div id="joyknob"></div></div></div>
@@ -70,11 +78,19 @@
     <button class="ts" data-act="yawRE" data-hold="yawR">▶</button>
   </div>
   <div id="thrtrack"><div id="thrknob">THR</div></div>
+  <button id="trun" class="tb" data-act="runToggle" data-hold="run">🏃<small>RUN</small></button>
+  <div id="tdrive">
+    <button class="tb gas" data-act="gasE" data-hold="gas">⏫<small>GAS</small></button>
+    <button class="tb brk" data-act="brakeE2" data-hold="brake">⏬<small>BRAKE</small></button>
+    <button class="tb" id="tcarexit" data-act="interact">🚪<small>EXIT</small></button>
+    <button class="tb" data-act="horn">📯<small>HORN</small></button>
+  </div>
 </div>
 
 <div id="title" class="screen show">
   <div class="card">
     <h1 class="logo">GROK<span>SKY</span></h1>
+    <div class="vertag">v3.5 · 🛬 Auto-land · 🏃 Run · 🚗 Cars &amp; cops · 🩺 Doctor mode</div>
     <p class="tag">Voxel airliner chaos · fly it · break it · cook in it</p>
     <h3>Start city</h3>
     <div id="cities"></div>
@@ -165,13 +181,18 @@
   <div class="cols">
     <div><h3>🖥 Desktop</h3>
       <p><b>On foot:</b> WASD move · mouse look · Space jump · F use/interact · Left click tool · Right click (or R) grab/throw · X drop · 1-3 tools (hands/hammer/crowbar) · V camera · Tab map · Esc pause · P add passenger · M mute</p>
-      <p><b>Pilot:</b> W/S pitch (W = nose down) · A/D roll · Q/E rudder · Shift/Ctrl throttle · G gear · Z flaps · B brakes · T autopilot · V chase/cockpit camera · F leave seat</p></div>
+      <p><b>Pilot:</b> W/S pitch (W = nose down) · A/D roll · Q/E rudder · Shift/Ctrl throttle · G gear · Z flaps · B brakes · T autopilot · V chase/cockpit camera · F leave seat · <b>L AUTO LAND</b> (when the banner shows)</p>
+      <p><b>3.5:</b> hold <b>Shift</b> to RUN on foot · <b>Car:</b> W/S gas &amp; brake/reverse · A/D steer · Space handbrake · N horn · F exit (or click EXIT)</p></div>
     <div><h3>📱 Phone</h3>
       <p>Left thumb: joystick (walk / pitch+roll) · Right side: drag to look · 💥 ACTION = use tool / spray · ✋ USE = interact · 🫳 GRAB = grab/throw · ⤒ JUMP (also parachute!) · 🔧 cycle tool · 🎥 camera · 🗺 map</p>
-      <p><b>Pilot:</b> THR slider on the right, GEAR / FLAP / AP / BRK / ◀ ▶ rudder.</p></div>
+      <p><b>Pilot:</b> THR slider on the right, GEAR / FLAP / AP / BRK / ◀ ▶ rudder. Near a runway a big orange <b>🛬 AUTO LAND</b> button appears — tap it; move the stick to take back control.</p>
+      <p><b>3.5:</b> 🏃 RUN button (tap = toggle, it turns green; or hold) · <b>Car:</b> joystick steers (push up = gas, down = brake/reverse) or use the big GAS / BRAKE pedals · 🚪 EXIT · 📯 HORN</p></div>
   </div>
   <p><b>✈ Airports:</b> land, slow down and taxi along the yellow lines to a free gate (HUD shows the distance). Stop on the gate's yellow stop bar to dock: the jet bridge connects and the front L1 door opens. Leave your seat, walk out the door, down the jet bridge into the terminal (departures board, café, check-in). Walk back down the bridge to reboard, take the controls and throttle up for pushback. <b>T</b> (AP) on the ground = auto-taxi (to a gate after landing, otherwise to the runway &amp; takeoff). Sit in a passenger seat at the gate and the AI crew flies you to the next city.</p>
   <p><b>🚪 Places:</b> every city has spots you can walk into (glowing gem + ring at the door). Walk into the ring and press F / USE (or tap the orange prompt). Eat to heal (or take food to go on a tray), play slots & arcade games for fun coins 🪙, buy souvenirs, snap 📸 photos (they count for the Tourist badge) and ride elevators 🛗 up to observation decks. MAP → Places lists them all with fast travel.</p>
+  <p><b>🛬 Auto-land (3.5):</b> fly toward any runway roughly lined up (within ~65° and a wide approach cone, 1.5–14 km out, not too high). The AUTO LAND button shows the target runway, e.g. "LAX 25L". It flies the glide path, flares, touches down and brakes to a stop.</p>
+  <p><b>🚗 Cars (3.5):</b> every airport has a yellow-signed <b>CAR RENTAL</b> counter next to the terminal parking — rent a compact, sports car or SUV with fun coins. Or walk up to a parked / passing car and press STEAL… that earns wanted stars ★: police cruisers chase you. Get 120 m away from them for 10 s, hide indoors, or drive the car back into any rental lot and EXIT to clear it. If they box you in while you're stopped you're BUSTED (small coin fine, released at the airport police office).</p>
+  <p><b>🩺 Clinics (3.5):</b> every airport has a <b>CLINIC</b> (red cross) beside the rental lot. Walk in, step up to a patient and press USE: pick what's wrong, pick the right tool, then drag it onto the glowing spot (or tap it). Coins + achievements!</p>
   <p class="fine">Tips: Takeoff ≈ 130 kts with flaps 1. Approach ≈ 140-150 kts, flaps 2, gear down. Masks drop when the cabin depressurises — stand near one and press USE. Below 10,000 ft the air is breathable.</p>
   <button id="help-x">Close</button>
 </div>
@@ -190,6 +211,9 @@
 <script src="js/places.js"></script>
 <script src="js/places_defs.js"></script>
 <script src="js/minigames.js"></script>
+<script src="js/autoland.js"></script>
+<script src="js/cars.js"></script>
+<script src="js/clinic.js"></script>
 <script src="js/player.js"></script>
 <script src="js/game.js"></script>
 </body>

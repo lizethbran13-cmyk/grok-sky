@@ -69,6 +69,7 @@ A.plan = (P, c, d) => {
     else op(4, { text: t, ox: XF + 50 + 8, oz: g.gz + w / 2, R: [0, -1], D: [1, 0], cw: 1.6, ch: 1.6, col: YEL });
   }
   // ---- structures (built lazily with the city) ----
+  if (SKY.Cars && SKY.Cars.planAirport) SKY.Cars.planAirport(P, apt); // 3.5: rental lot / police pad / clinic forecourt
   P.job(() => buildAirport(apt)); apt.gates.forEach((g, gi) => P.job(() => buildGate(apt, g, gi))); P.job(() => buildMisc(apt));
   // apron service loops for baggage carts / fuel truck (used by ambient.js)
   apt.service = [[[XF - side * 8, az - L / 2 + 10], [XF - side * 8, az + L / 2 - 10], [XF - side * 50, az + L / 2 - 10], [XF - side * 50, az - L / 2 + 10]], [[XF + side * 10, az + L / 2 + 95], [XF - side * 40, az + L / 2 + 60], [XF - side * 40, az - L / 2 + 30], [XF - side * 10, az - L / 2 + 30], [XF - side * 10, az + L / 2 + 40]]];
@@ -140,6 +141,7 @@ function buildGate(apt, g, gi) {
     W.interactables.push({ city: c, pos: new THREE.Vector3(XF + side * 7, 1.2, g.gz + lv * 13.5), r: 4, label: () => '🎫 Gate ' + g.name + ' — ' + gateStatus(apt, g), act: () => gateDesk(apt, g) });
 }
 function buildMisc(apt) {
+  if (SKY.Cars && SKY.Cars.buildAirport) { try { SKY.Cars.buildAirport(apt); } catch (e) { console.warn('cars buildAirport ' + e.message); } }
   const c = apt.c, { side, lv, XF, L, az, ax } = apt; const d = apt.def;
   const liv = LIVERY[apt.code] || [67, 68];
   const mid = apt.gates[Math.floor(apt.gates.length / 2)];

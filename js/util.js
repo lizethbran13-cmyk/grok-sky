@@ -106,7 +106,7 @@ SKY.MAT = { HULL: 1, STRIPE: 2, WIN: 3, FLOOR: 4, SEAT: 5, HEAD: 6, STEEL: 7, BU
 // ---------------- Audio (all synthesized) ----------------
 SKY.Audio = (() => {
   let ctx = null, master, engOsc1, engOsc2, engGain, engFilt, windGain, windFilt, alarmGain, alarmOsc, noiseBuf;
-  let alarmOn = false, alarmT = 0, muted = false;
+  let alarmOn = false, alarmT = 0, muted = false, sirenGain = null, sirenOsc = null, sirenLvl = 0, sirenT = 0;
   function init() {
     if (ctx) { if (ctx.state === 'suspended') ctx.resume(); return; }
     try { ctx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { return; }
@@ -126,6 +126,9 @@ SKY.Audio = (() => {
     // alarm
     alarmOsc = ctx.createOscillator(); alarmOsc.type = 'square'; alarmOsc.frequency.value = 880;
     alarmGain = ctx.createGain(); alarmGain.gain.value = 0; alarmOsc.connect(alarmGain); alarmGain.connect(master); alarmOsc.start();
+    // police siren (3.5): soft triangle wail, gain follows setSiren(level 0..1)
+    sirenOsc = ctx.createOscillator(); sirenOsc.type = 'triangle'; sirenOsc.frequency.value = 700;
+    sirenGain = ctx.createGain(); sirenGain.gain.value = 0; sirenOsc.connect(sirenGain); sirenGain.connect(master); sirenOsc.start();
   }
   function setEngine(thr, on, inside) {
     if (!ctx) return; const t = ctx.currentTime;
@@ -140,12 +143,14 @@ SKY.Audio = (() => {
     windFilt.frequency.setTargetAtTime(400 + level * 900, t, 0.2);
   }
   function setAlarm(on) { alarmOn = on; }
+  function setSiren(level) { sirenLvl = SKY.clamp(level || 0, 0, 1); }
   function tick(dt) {
     if (!ctx) return;
     alarmT += dt;
     const beep = alarmOn && (alarmT % 0.5) < 0.25;
     alarmGain.gain.setTargetAtTime(beep ? 0.06 : 0, ctx.currentTime, 0.01);
     alarmOsc.frequency.setTargetAtTime((alarmT % 1) < 0.5 ? 880 : 660, ctx.currentTime, 0.01);
+    if (sirenGain) { sirenT += dt; sirenGain.gain.setTargetAtTime(sirenLvl * 0.07, ctx.currentTime, 0.15); if (sirenLvl > 0) sirenOsc.frequency.setTargetAtTime(650 + 300 * (0.5 + 0.5 * Math.sin(sirenT * 4.2)), ctx.currentTime, 0.05); }
   }
   function noise(dur, freq, vol, type) {
     if (!ctx || muted) return;
@@ -170,6 +175,7 @@ SKY.Audio = (() => {
     clang: () => { tone(330, 0.5, 0.2, 'square', 300); tone(495, 0.4, 0.12, 'square', 480); noise(0.1, 4000, 0.2, 'highpass'); },
     chime: () => { tone(880, 0.6, 0.2); setTimeout(() => tone(660, 0.8, 0.2), 250); },
     ding: () => { tone(1320, 0.7, 0.2); },
+    horn: () => { tone(330, 0.35, 0.16, 'square'); tone(415, 0.35, 0.12, 'square'); },
     beep: () => { tone(1000, 0.07, 0.15, 'square'); },
     error: () => { tone(200, 0.25, 0.2, 'square'); },
     ok: () => { tone(700, 0.1, 0.2, 'square'); setTimeout(() => tone(1050, 0.15, 0.2, 'square'), 100); },
@@ -182,7 +188,7 @@ SKY.Audio = (() => {
     splash: () => { noise(1.0, 1200, 0.6, 'bandpass'); },
   };
   function play(name, v) { if (sfx[name]) sfx[name](v); }
-  return { init, setEngine, setWind, setAlarm, tick, play, get ready() { return !!ctx; }, mute(m) { muted = m; if (master) master.gain.value = m ? 0 : 0.55; } };
+  return { init, setEngine, setWind, setAlarm, setSiren, tick, play, get ready() { return !!ctx; }, mute(m) { muted = m; if (master) master.gain.value = m ? 0 : 0.55; } };
 })();
 
 // ---------------- DOM label pool (health bars + speech) ----------------
@@ -217,7 +223,9 @@ SKY.toastQ = [];
 SKY.toast = (msg, cls) => {
   const box = document.getElementById('toasts'); if (!box) return;
   const d = document.createElement('div'); d.className = 'toast ' + (cls || ''); d.textContent = msg;
-  box.appendChild(d); while (box.children.length > 4) box.removeChild(box.firstChild);
-  setTimeout(() => { d.classList.add('fade'); }, 2600); setTimeout(() => { if (d.parentNode) d.parentNode.removeChild(d); }, 3400);
+  // phones (3.5): at most 2 short-lived toasts so they never pile up over the controls
+  const ph = SKY.isTouch, max = ph ? 2 : 4, life = ph ? 2100 : 2600;
+  box.appendChild(d); while (box.children.length > max) box.removeChild(box.firstChild);
+  setTimeout(() => { d.classList.add('fade'); }, life); setTimeout(() => { if (d.parentNode) d.parentNode.removeChild(d); }, life + 700);
   SKY.toastQ.push(msg); if (SKY.toastQ.length > 50) SKY.toastQ.shift();
 };

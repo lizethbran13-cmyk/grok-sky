@@ -152,9 +152,12 @@ const P = SKY.Player = {
     if (this.woozy > 0) this.woozy -= dt;
     // look
     const sens = SKY.isTouch ? 0.0045 : 0.0023;
-    if (this.mode === 'pilot' && this.pilotCam === 'chase') { G.camOrbit.yaw -= I.look.dx * sens; G.camOrbit.pitch = clamp(G.camOrbit.pitch - I.look.dy * sens, -0.9, 0.7); if (I.look.dx || I.look.dy) G.camOrbit.t = 2.5; }
+    if (this.mode === 'drive') { G.camOrbit.yaw -= I.look.dx * sens; G.camOrbit.pitch = clamp(G.camOrbit.pitch - I.look.dy * sens, -0.5, 0.7); if (I.look.dx || I.look.dy) G.camOrbit.t = 2.5; }
+    else if (this.mode === 'pilot' && this.pilotCam === 'chase') { G.camOrbit.yaw -= I.look.dx * sens; G.camOrbit.pitch = clamp(G.camOrbit.pitch - I.look.dy * sens, -0.9, 0.7); if (I.look.dx || I.look.dy) G.camOrbit.t = 2.5; }
     else { this.yaw -= I.look.dx * sens; this.pitch = clamp(this.pitch - I.look.dy * sens, -1.5, 1.5); }
     I.look.dx = 0; I.look.dy = 0;
+    // 3.5: driving a car (look = orbit the chase camera, handled in updateCamera)
+    if (this.mode === 'drive') { SKY.Cars.drive(dt, I); this.target = null; this.computeView(); this.vitals(dt); for (let i = 0; i < 3; i++) this.vmTools[i].visible = false; this.vmHeld.visible = false; return; }
     if (this.woozy > 0) { this.yaw += Math.sin(performance.now() * 0.002) * 0.004; }
     // tools
     if (I.edge('tool1')) this.setTool(0); if (I.edge('tool2')) this.setTool(1); if (I.edge('tool3')) this.setTool(2);
@@ -184,6 +187,7 @@ const P = SKY.Player = {
   setTool(i) { this.tool = i; SKY.Audio.play('beep'); },
   updatePilot(dt, I) {
     const pl = this.plane;
+    if (SKY.AutoLand) SKY.AutoLand.checkInput(I); // any flight input cancels auto-land
     const inv = SKY.Game.settings.invert ? -1 : 1;
     const ctl = { pitch: -I.move.y * inv, roll: I.move.x, yaw: (I.hold('yawR') ? 1 : 0) - (I.hold('yawL') ? 1 : 0) };
     if (I.throttleAbs !== null) { pl.throttle = I.throttleAbs; I.throttleAbs = null; }
@@ -209,7 +213,16 @@ const P = SKY.Player = {
     // movement dir in frame coords
     const sy = Math.sin(this.yaw), cy = Math.cos(this.yaw);
     const mx = I.move.x, my = I.move.y;
-    const speed = (this.woozy > 0 ? 2.2 : 3.6);
+    // 3.5 RUN: hold Shift / the RUN button (or tap it to toggle); lenient stamina so it never gets annoying
+    if (I.edge('runToggle')) { I.runOn = !I.runOn; SKY.Audio.play('beep'); }
+    if (this.stam == null) this.stam = 100;
+    const moving = Math.abs(mx) + Math.abs(my) > 0.2;
+    const wantRun = (I.hold('run') || I.runOn) && moving && !this.chute;
+    if (this.winded && this.stam > 35) this.winded = false;
+    this.running = wantRun && !this.winded && this.woozy <= 0;
+    if (this.running) { this.stam = Math.max(0, this.stam - 7 * dt); if (this.stam <= 0) { this.winded = true; SKY.toast('😮‍💨 Out of breath — walk for a moment', ''); } this.runT = (this.runT || 0) + dt; if (this.runT > 4 && SKY.Game.achieve) SKY.Game.achieve('sprinter'); }
+    else this.stam = Math.min(100, this.stam + (moving ? 18 : 30) * dt);
+    const speed = (this.woozy > 0 ? 2.2 : 3.6) * (this.running ? 1.9 : 1);
     let wx = (cy * mx - sy * my) * speed, wz = (-sy * mx - cy * my) * speed;
     if (this.woozy > 0) { wx += Math.sin(performance.now() * 0.003) * 0.8; }
     const inChute = this.frame === 'world' && this.chute;
@@ -480,6 +493,7 @@ const P = SKY.Player = {
     } else {
       // world interactables
       for (const it of SKY.World.interactables) { const l = it.label(); if (l) add(it.pos, it.r, l, it.act); }
+      if (SKY.Cars) for (const it of SKY.Cars.targets()) addP(0.6, it.pos, it.r, it.label(), it.act);
       if (this.plane.speed() < 3) { const dp = this.plane.toWorld(new THREE.Vector3(-2.4, 0, (C().DOOR_L1.z0 + C().DOOR_L1.z1) / 2)); const near = Math.hypot(dp.x - this.pos.x, dp.z - this.pos.z) < 7 && Math.abs(dp.y - this.pos.y) < 6; if (near) add(new THREE.Vector3(this.pos.x, this.pos.y + 1.4, this.pos.z).addScaledVector(this.dir, 1), 3, '✈ Board the plane', () => this.board()); }
     }
     for (const c of cands) if (c.prio) c.score -= c.prio;

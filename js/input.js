@@ -7,16 +7,18 @@ const I = SKY.Input = {
   clearEdges() { this.edges = {}; },
   hold(n) { return !!this.holds[n]; },
 };
-const KEYMAP = { KeyF: 'interact', Space: 'jump', Digit1: 'tool1', Digit2: 'tool2', Digit3: 'tool3', Tab: 'map', Escape: 'pause', KeyV: 'cam', KeyG: 'gear', KeyZ: 'flaps', KeyT: 'ap', KeyP: 'addPax', KeyM: 'mute', KeyC: 'cam', KeyH: 'help', KeyR: 'grab', KeyX: 'drop' };
-const HOLDMAP = { ShiftLeft: 'thrUp', ShiftRight: 'thrUp', ControlLeft: 'thrDown', ControlRight: 'thrDown', KeyQ: 'yawL', KeyE: 'yawR', KeyB: 'brake', Space: 'jump' };
+const KEYMAP = { KeyF: 'interact', Space: 'jump', Digit1: 'tool1', Digit2: 'tool2', Digit3: 'tool3', Tab: 'map', Escape: 'pause', KeyV: 'cam', KeyG: 'gear', KeyZ: 'flaps', KeyT: 'ap', KeyP: 'addPax', KeyM: 'mute', KeyC: 'cam', KeyH: 'help', KeyR: 'grab', KeyX: 'drop', KeyL: 'autoland', KeyN: 'horn' };
+const HOLDMAP = { ShiftLeft: ['thrUp', 'run'], ShiftRight: ['thrUp', 'run'], ControlLeft: 'thrDown', ControlRight: 'thrDown', KeyQ: 'yawL', KeyE: 'yawR', KeyB: 'brake', Space: 'jump' };
+// a key can drive several holds (Shift = throttle up in the cockpit, RUN on foot)
+function setHold(code, v) { const h = HOLDMAP[code]; if (!h) return; for (const n of [].concat(h)) I.holds[n] = v; }
 addEventListener('keydown', (e) => {
   if (e.target && (e.target.tagName === 'INPUT')) return;
   if (e.code === 'Tab' || e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
   if (!I.keys[e.code] && KEYMAP[e.code]) I.edges[KEYMAP[e.code]] = true;
-  I.keys[e.code] = true; if (HOLDMAP[e.code]) I.holds[HOLDMAP[e.code]] = true;
+  I.keys[e.code] = true; setHold(e.code, true);
   SKY.Audio.init();
 });
-addEventListener('keyup', (e) => { I.keys[e.code] = false; if (HOLDMAP[e.code]) I.holds[HOLDMAP[e.code]] = false; });
+addEventListener('keyup', (e) => { I.keys[e.code] = false; setHold(e.code, false); });
 addEventListener('blur', () => { I.keys = {}; I.holds = {}; });
 I.updateMove = function () {
   const k = this.keys;
@@ -65,11 +67,18 @@ I.bindTouch = function () {
     b.addEventListener('mousedown', (e) => { if (!SKY.isTouch) return; I.edges[act] = true; if (hold) I.holds[hold] = true; });
     b.addEventListener('mouseup', () => { if (hold) I.holds[hold] = false; });
   });
+  // 3.5: AUTO LAND button lives outside #touch (it is shown on desktop too)
+  I.runOn = false;
   // throttle slider
   const thr = document.getElementById('thrtrack'), thrk = document.getElementById('thrknob');
   const setThr = (t) => { const r = thr.getBoundingClientRect(); const v = SKY.clamp(1 - (t.clientY - r.top) / r.height, 0, 1); I.throttleAbs = v; };
   thr.addEventListener('touchstart', (e) => { e.preventDefault(); setThr(e.changedTouches[0]); }, { passive: false });
   thr.addEventListener('touchmove', (e) => { e.preventDefault(); setThr(e.changedTouches[0]); }, { passive: false });
   I.thrKnob = thrk;
+};
+// 3.5 AUTO LAND button (desktop + touch): a plain click/tap fires the 'autoland' edge
+I.bindAutoLand = function () {
+  const b = document.getElementById('albtn'); if (!b || b.bound) return; b.bound = true;
+  b.addEventListener('pointerdown', (e) => { e.preventDefault(); e.stopPropagation(); SKY.Audio.init(); I.edges.autoland = true; });
 };
 })();
