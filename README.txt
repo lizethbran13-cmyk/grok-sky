@@ -39,6 +39,12 @@ js/plane.js    the voxel airliner: build, flight model, autopilot, ground and bu
                parts detaching, doors, pressure and decompression, oxygen masks, galley oven
 js/people.js   passengers, crew and pilots: verlet ragdolls, poses, health, AI
 js/input.js    keyboard, mouse (pointer lock) and touch controls
+js/places.js   enterable places engine: storefront facades + glowing door markers, interiors built on
+               demand (one at a time, floating high above the active city), elevators to real observation
+               decks, NPCs, coins/souvenirs save, telescopes, photo spots, place fast travel
+js/places_defs.js  the places of every zone (door positions, interiors, decks, food stands, pyramid climb)
+js/minigames.js    the place panel: food menus (eat here / to go), souvenir shops, slots, roulette,
+               blackjack, GROK INVADERS arcade, claw machine, skee-ball, taiko, movie scene
 js/player.js   the player (on foot, seated, piloting, falling or on a parachute), tools, grab and throw,
                extinguisher, all interactions, cooking and serving, cockpit code
 js/game.js     main loop, cameras, HUD, events, achievements, menus, fast travel, game over
@@ -134,6 +140,27 @@ THINGS TO DO
   Distances between cities are hugely compressed (15-40 km). Walking around a city on foot works:
   streets have cars and people. Visiting 5 landmarks earns an achievement.
 * Achievements are saved in your browser (check the pause menu).
+* ENTERABLE PLACES (walk in on foot; MAP -> "Places" lists them all and fast-travels you to the
+  door, parking your plane at that city's gate). Each door has a spinning gem and a glowing ring:
+  stand in the ring and press F / USE (or tap the orange ENTER prompt on a phone). A short fade
+  takes you inside; the green EXIT ring takes you back out to the same door.
+  - Los Angeles: Grok Studios Soundstage 7 on Hollywood Blvd (western + sci-fi sets, star in a scene,
+    Walk of Fame gift shop, craft services), Venice Beach Tacos & Burgers stand, Griffith Observatory
+    (Foucault pendulum, Tesla coil, planets, the great telescope looks at the Hollywood Sign).
+  - Las Vegas: Grok Royale Casino (slots, roulette, blackjack, cashier comps, bar, chaser lights),
+    Golden Buffet (all you can eat = full heal), STRAT SkyPod deck by elevator (+ SkyJump!).
+  - Area 51: Hangar 18 with the saucer; find the keycard to open the secret lab with alien tanks.
+  - Mexico City: Mercado (tacos al pastor, churros, aguas frescas, souvenirs, mariachis), Zocalo taco
+    cart, the Cathedral (light a candle, golden altar), climbable Pyramid of the Sun at Teotihuacan.
+  - New York: Times Square Candy & Toy World, Broadway Arcade (Invaders, claw, skee-ball), Tony's
+    pizza, Empire State observation deck by elevator.
+  - Paris: Boulangerie (croissants), the Louvre gallery (gaze at the Mona Lisa...), Eiffel summit.
+  - Tokyo: Akiba Game Center (playable GROK INVADERS, UFO catchers, taiko, purikura), Ichiban Ramen,
+    GrokMart konbini, Skytree deck by elevator.
+  Food heals you (or take it "to go" on a tray: eat it later with USE, or carry it onto your plane
+  and serve it). Fun coins (start with 60) come from photo spots, slots, the arcade and skee-ball and
+  buy souvenirs. Photo spots count toward the Tourist achievement. Decks have coin telescopes.
+  Coins, souvenirs, high scores and visited places are saved in your browser.
 
 NOTES / KNOWN ROUGH EDGES
 -------------------------
@@ -148,5 +175,6 @@ NOTES / KNOWN ROUGH EDGES
   1 km (650 m on phones) are swapped for merged box impostors, grouped into large cells so far
   scenery is a handful of draw calls. Hidden voxels are not drawn, and cars, people and lights are
   instanced. Damaged buildings drop out of the impostors.
-* City layouts are compressed caricatures; building interiors (other than the airport terminals)
-  are hollow shells.
+* City layouts are compressed caricatures; ordinary buildings are hollow shells. The enterable
+  places are separate small interiors you step into through their doors (only one is built at a
+  time, and only while you are inside), so they cost nothing while you fly.

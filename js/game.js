@@ -8,6 +8,10 @@ const ACH = {
   takeoff: ['🛫', 'Wheels Up', 'Take off'], land: ['🛬', 'Greaser', 'Land on a runway'], chef: ['⭐', 'Top Chef', 'Cook a PERFECT meal'], spoiled: ['🤢', 'Food Poisoning (Cartoon)', 'Serve a spoiled meal'],
   code: ['🔑', 'Detective', 'Find the cockpit code'], breach: ['🚪', 'Door Buster', 'Get into the cockpit'], door: ['🌬', 'Fresh Air', 'Open a door mid-flight'], masks: ['😷', 'Breathe Normally', 'Wear a mask during decompression'],
   saucer: ['👽', 'They\'re Real', 'Wake the Area 51 saucer'], gate: ['🅿', 'On Blocks', 'Dock at an airport gate'], terminal: ['🏢', 'Frequent Flyer', 'Walk into an airport terminal'], pushback: ['🚜', 'Pushback', 'Push back from a gate'], tourist: ['📸', 'Tourist', 'Visit 5 famous landmarks'], firefighter: ['🧯', 'Firefighter', 'Put out a fire'], crash: ['💥', 'Insurance Claim', 'Crash the plane'], globe: ['🌍', 'Globetrotter', 'Visit all 6 cities'],
+  enter: ['🚪', 'Come On In', 'Walk into a place in a city'], explorer: ['🧭', 'City Explorer', 'Enter a place in all 7 zones'], jackpot: ['🎰', 'JACKPOT!', 'Hit 7-7-7 on a slot machine'],
+  arcade: ['👾', 'Arcade Legend', 'Score 500+ on GROK INVADERS'], foodie: ['🌮', 'Foodie', 'Eat in 3 different cities'], souvenir: ['🎁', 'Souvenir Hunter', 'Buy a souvenir'],
+  deck: ['🏙', 'Top of the World', 'Ride an elevator to an observation deck'], monalisa: ['😉', 'She Winked', 'Gaze at the Mona Lisa'], xfiles: ['👽', 'The Truth Is In There', 'Get into the Area 51 lab'],
+  summit: ['🔺', 'Summit', 'Climb the Pyramid of the Sun']
 };
 const G = SKY.Game = {
   state: 'title', settings: { invert: false, muted: false }, ach: {}, stats: null, camPos: new THREE.Vector3(), camOrbit: { yaw: 0, pitch: 0, t: 0 }, shakeAmt: 0, testMode: false,
@@ -54,6 +58,7 @@ const G = SKY.Game = {
     const city = SKY.World.city(this.startCity);
     const pl = this.plane;
     for (const d of SKY.World.debris) d.dispose(); SKY.World.debris = [];
+    if (SKY.Places) SKY.Places.reset();
     this.fx.clear();
     if (SKY.Airport) SKY.Airport.reset();
     SKY.World.ensureCity(city);
@@ -108,7 +113,10 @@ const G = SKY.Game = {
     const pl = this.plane, P = SKY.Player, Crowd = SKY.Crowd;
     // player (UI open → freeze player input)
     if (this.ui) { I.move.x = 0; I.move.y = 0; I.look.dx = 0; I.look.dy = 0; I.edges = {}; I.holds.action = false; }
+    const PLc = SKY.Places; // place transitions / telescopes freeze walking
+    if (PLc && PLc.preUpdate(dt, I)) { I.move.x = 0; I.move.y = 0; I.edges = {}; I.holds.action = false; I.holds.jump = false; if (!PLc.scope) { I.look.dx = 0; I.look.dy = 0; } }
     P.update(dt, I);
+    if (SKY.Mini) SKY.Mini.update(dt);
     // plane control source
     const pilots = Crowd.pilots();
     const playerFlying = P.mode === 'pilot' && P.frame === 'plane';
@@ -130,6 +138,7 @@ const G = SKY.Game = {
     SKY.Props.update(dt);
     pl.updateMasks(Crowd.list, dt);
     SKY.World.update(dt, this.camPos, P.frame === 'world' ? P.pos : pl.pos);
+    if (SKY.Places) SKY.Places.update(dt, this.camPos);
     if (SKY.Ambient) SKY.Ambient.update(dt, this.camPos);
     this.fx.update(dt, new THREE.Vector3(0, -SKY.GRAV, 0), (x, y, z) => SKY.World.heightAt(x, z) + 0.05);
     this.events(dt);
@@ -200,11 +209,19 @@ const G = SKY.Game = {
       cam.position.copy(pl.toWorld(eye)); cam.quaternion.copy(pl.quat).multiply(q);
     } else {
       const eye = P.eye.clone(); e.set(P.pitch, P.yaw, 0); cam.quaternion.setFromEuler(e);
-      if (P.camMode === 'tp' || P.chute) { const back = P.dir.clone().negate(); eye.addScaledVector(back, 4).y += 1; const gh = SKY.World.heightAt(eye.x, eye.z) + 0.3; if (eye.y < gh) eye.y = gh; }
+      const PLs = SKY.Places, scope = PLs && PLs.scope;
+      if (scope) eye.set(scope.x, scope.y, scope.z);
+      else if ((P.camMode === 'tp' || P.chute) && PLs && PLs.cur) { // indoors / on a deck: pull the camera in so it never clips through walls
+        const back = P.dir.clone().negate(); const p = new THREE.Vector3(); let d;
+        for (d = 0.3; d < 4; d += 0.2) { p.copy(eye).addScaledVector(back, d); p.y += d * 0.25; if (P.solid(p.x, p.y, p.z)) { d -= 0.35; break; } }
+        d = Math.max(0.15, d); eye.addScaledVector(back, d).y += d * 0.25;
+      } else if (P.camMode === 'tp' || P.chute) { const back = P.dir.clone().negate(); eye.addScaledVector(back, 4).y += 1; const gh = SKY.World.heightAt(eye.x, eye.z) + 0.3; if (eye.y < gh) eye.y = gh; }
       cam.position.copy(eye);
     }
     if (this.shakeAmt > 0) { const s = this.shakeAmt * (P.mode === 'pilot' && P.pilotCam === 'chase' ? 2 : 0.25); cam.position.x += rand(-s, s); cam.position.y += rand(-s, s); cam.position.z += rand(-s, s); }
     if (P.woozy > 0) { cam.rotateZ(Math.sin(this.time * 1.7) * 0.06); }
+    const sc = SKY.Places && SKY.Places.scope; const fov = sc && P.frame === 'world' ? sc.fov : (SKY.lowSpec ? 75 : 70);
+    if (cam.fov !== fov) { cam.fov = fov; cam.updateProjectionMatrix(); }
     this.camPos.copy(cam.position);
   },
   shake(a) { this.shakeAmt = Math.min(1.5, Math.max(this.shakeAmt, a)); },
@@ -291,6 +308,7 @@ const G = SKY.Game = {
       }
       cand.sort((x, y) => x[0] - y[0]);
       for (const c of cand.slice(0, 10)) SKY.Labels.add(c[1], this.camera, this.W, this.H, c[2].hp < 100 || c[2].ko ? c[2].hp : null, c[2].say || (c[2].woozy > 0 ? '🤢' : ''), c[2].ko ? '#888' : '#222');
+      if (SKY.Places) SKY.Places.labels(this.camera, (pos, txt) => SKY.Labels.add(pos, this.camera, this.W, this.H, null, txt, '#222'));
     }
     SKY.Labels.end();
     this.renderer.render(this.scene, this.camera);
@@ -316,7 +334,8 @@ const G = SKY.Game = {
     const apH = SKY.Airport && SKY.Airport.nearest((P.frame === 'world' ? P.pos : pl.pos).x, (P.frame === 'world' ? P.pos : pl.pos).z, 1500);
     $('h-city').textContent = (nc.dist < 6500 ? '📍 ' + nc.city.name + (apH ? ' · ✈ ' + apH.code : '') : '🌐 ' + (nc.dist / 1000).toFixed(1) + ' km from ' + nc.city.name);
     const modeTxt = P.frame === 'world' ? (P.chute ? '🪂 PARACHUTING' : P.grounded ? '🚶 ON FOOT (ground)' : '😱 FALLING') : P.mode === 'pilot' ? '🧑‍✈️ PILOT' : P.mode === 'seat' ? '💺 SEATED' : '🚶 ON FOOT (cabin)';
-    $('h-mode').textContent = modeTxt;
+    const PLh = SKY.Places, inside = PLh && PLh.cur;
+    $('h-mode').textContent = inside ? (inside.kind === 'deck' ? '🏙 ' : '🏠 INSIDE: ') + inside.place.name + ' · 🪙 ' + PLh.coins() : modeTxt + (P.frame === 'world' && PLh ? ' · 🪙 ' + PLh.coins() : '');
     $('i-alt').textContent = Math.max(0, Math.round(ft / 10) * 10).toLocaleString() + ' ft';
     $('i-spd').textContent = Math.round(kts) + ' kts';
     $('i-vs').textContent = (vs >= 0 ? '+' : '') + Math.round(vs / 50) * 50 + ' fpm';
@@ -334,7 +353,7 @@ const G = SKY.Game = {
     $('toolbar').innerHTML = tb + (P.held ? `<span class="sel">✋ ${P.held.person ? P.held.person.name : P.held.meal ? 'Meal: ' + P.held.meal.emoji + ' ' + P.held.meal.q : P.held.kind}</span>` : '') + (pl.codeFound ? `<span class="code">🔑 ${pl.code}</span>` : '');
     // prompt
     const pr = $('prompt');
-    if (P.target && P.mode !== 'pilot' && !this.ui) { pr.textContent = (SKY.isTouch ? '👆 ' : '[F] ') + P.target.label; pr.style.display = 'block'; }
+    if (P.target && P.mode !== 'pilot' && !this.ui && !(SKY.Places && (SKY.Places.scope || SKY.Places.trans))) { pr.textContent = (SKY.isTouch ? '👆 ' : '[F] ') + P.target.label; pr.style.display = 'block'; pr.classList.toggle('enter', /^(🚪|🛗|🍽|🪂)/u.test(P.target.label)); }
     else if (P.mode === 'pilot') { pr.textContent = SKY.isTouch ? 'USE (hand) = leave seat' : '[F] leave seat  [V] camera  [T] autopilot  [G] gear  [Z] flaps  [B] brake'; pr.style.display = this.time % 20 < 6 ? 'block' : 'none'; }
     else pr.style.display = 'none';
     // alerts
@@ -359,6 +378,7 @@ const G = SKY.Game = {
   },
   objectiveHint() {
     const pl = this.plane, P = SKY.Player;
+    const ph = SKY.Places && SKY.Places.hintText(); if (ph) return ph;
     const A = SKY.Airport;
     if (A) {
       const D = A.dock;
@@ -377,7 +397,7 @@ const G = SKY.Game = {
   },
   drawMinimap() {
     const cv = $('minimap'); const x = cv.getContext('2d'); const S = cv.width; const W = SKY.World, pl = this.plane, P = SKY.Player;
-    const ref = P.frame === 'world' ? P.pos : pl.pos; const hdg = P.frame === 'world' ? -P.yaw : pl.heading() * Math.PI / 180;
+    const ref = (SKY.Places && SKY.Places.mapRef()) || (P.frame === 'world' ? P.pos : pl.pos); const hdg = P.frame === 'world' ? -P.yaw : pl.heading() * Math.PI / 180;
     // zoom into the local city map when low / on foot near a city
     let local = null; for (const c of W.cities) if (c.mapCv && W.zoneDist(c, ref.x, ref.z) < 4500) local = c;
     const lowish = P.frame === 'world' || pl.altitude() < 1500;
@@ -397,6 +417,7 @@ const G = SKY.Game = {
         const gd = A && A.guide; if (gd && gd.route) { x.strokeStyle = '#57ff7a'; x.lineWidth = 2; x.setLineDash([4, 3]); x.beginPath(); x.moveTo(0, 0); for (const q of gd.route.pts.slice(gd.route.i || 0)) x.lineTo((q[0] - ref.x) * sc, (q[1] - ref.z) * sc); x.stroke(); x.setLineDash([]); }
       }
       for (const l of W.landmarks) if (l.city === local && l.label !== false) { const d = Math.hypot(l.x - ref.x, l.z - ref.z); if (d > range * 1.5) continue; x.fillStyle = '#ff5ea8'; x.beginPath(); x.arc((l.x - ref.x) * sc, (l.z - ref.z) * sc, 2.5, 0, 6.29); x.fill(); if (range < 3000 && (l.label || range < 1200)) lbl(l.x, l.z, l.name, '#ffd6ec', '9px sans-serif'); }
+      if (SKY.Places) for (const q of SKY.Places.byCity[local.id] || []) { const d = Math.hypot(q.dx - ref.x, q.dz - ref.z); if (d > range * 1.5) continue; x.save(); x.translate((q.dx - ref.x) * sc, (q.dz - ref.z) * sc); x.rotate(hdg); x.fillStyle = 'rgba(0,0,0,.55)'; x.beginPath(); x.arc(0, 0, 8, 0, 6.29); x.fill(); x.strokeStyle = '#ffd23d'; x.lineWidth = 1.5; x.stroke(); x.font = '10px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(q.icon, 0, 1); x.restore(); }
     }
     for (const c of W.cities) { const cx = (c.x - ref.x) * sc, cz = (c.z - ref.z) * sc; x.fillStyle = c.id === 'A51' ? '#7dff7d' : '#ffeb3b'; x.beginPath(); x.arc(cx, cz, 4, 0, 6.29); x.fill(); x.save(); x.translate(cx, cz); x.rotate(hdg); x.fillStyle = '#fff'; x.font = 'bold 10px sans-serif'; x.fillText(c.id, 5, -4); x.restore(); }
     x.restore();
@@ -431,10 +452,19 @@ const G = SKY.Game = {
     const sx = cv.width / mb.w, sz = cv.height / mb.h;
     for (const c of W.cities) { const px = (c.x - mb.x0) * sx, pz = (c.z - mb.z0) * sz; x.fillStyle = c.id === 'A51' ? '#7dff7d' : '#ffeb3b'; x.beginPath(); x.arc(px, pz, 6, 0, 6.29); x.fill(); x.strokeStyle = '#000'; x.stroke(); x.fillStyle = '#fff'; x.font = 'bold 14px sans-serif'; x.strokeStyle = '#000'; x.lineWidth = 3; x.strokeText(c.name, px + 8, pz - 6); x.fillText(c.name, px + 8, pz - 6); x.lineWidth = 1; }
     for (const c of W.cities) if (c.apt) { const px = (c.apt.XF - mb.x0) * sx, pz = (c.apt.az - mb.z0) * sz; x.fillStyle = '#fff'; x.fillRect(px - 3, pz - 3, 6, 6); x.font = 'bold 11px sans-serif'; x.lineWidth = 3; x.strokeStyle = '#000'; x.strokeText('✈ ' + c.apt.code, px + 5, pz + 12); x.fillStyle = '#ffeb3b'; x.fillText('✈ ' + c.apt.code, px + 5, pz + 12); x.lineWidth = 1; }
+    this.renderPlaces();
     const P = SKY.Player, ref = P.frame === 'world' ? P.pos : this.plane.pos; x.fillStyle = '#ff6a1a'; x.beginPath(); x.arc((ref.x - mb.x0) * sx, (ref.z - mb.z0) * sz, 7, 0, 6.29); x.fill(); x.strokeStyle = '#fff'; x.lineWidth = 2; x.stroke(); x.lineWidth = 1;
   },
+  // Places list per city in the map: tap to fast-travel to the entrance (plane gets parked at that city's gate)
+  renderPlaces() {
+    const PLp = SKY.Places; let box = $('placelist'); if (!PLp) return;
+    if (!box) { box = document.createElement('div'); box.id = 'placelist'; $('maplist').after(box); }
+    const vis = PLp.save.visited; let h = '<h3>🚪 Places you can walk into · tap to go to the entrance <span class="fine">(🪙 ' + PLp.coins() + ' · visited ' + vis.length + '/' + PLp.list.length + ')</span></h3>';
+    for (const c of SKY.World.cities) { const L = PLp.byCity[c.id]; if (!L || !L.length) continue; h += '<div class="pcity"><b>' + c.name + '</b>' + L.map((q) => '<button data-place="' + q.id + '" class="' + (vis.includes(q.id) ? 'seen' : '') + '">' + q.icon + ' ' + q.name + (vis.includes(q.id) ? ' ✓' : '') + '</button>').join('') + '</div>'; }
+    box.innerHTML = h; box.querySelectorAll('[data-place]').forEach((b) => { b.onclick = () => PLp.travel(b.dataset.place); });
+  },
   closeMap() { if (this.ui === 'map') { this.ui = null; this.state = (this.prevState === 'over' ? 'over' : 'play'); if (this.state === 'over' && this.plane.crashed === false) this.state = 'play'; $('mapScreen').classList.remove('show'); if (this.state === 'play') { $('over').classList.remove('show'); if (!SKY.isTouch && !this.testMode) this.lockPointer(); } } },
-  closeUI() { if (this.ui === 'map') return this.closeMap(); this.ui = null; $('cook').classList.remove('show'); $('keypad').classList.remove('show'); if (this.state === 'play' && !SKY.isTouch && !this.testMode) this.lockPointer(); },
+  closeUI() { if (this.ui === 'map') return this.closeMap(); this.ui = null; $('cook').classList.remove('show'); $('keypad').classList.remove('show'); if (SKY.Mini) SKY.Mini.close(); if (this.state === 'play' && !SKY.isTouch && !this.testMode) this.lockPointer(); },
   openCook() {
     this.ui = 'cook'; this.unlockPointer(); const box = $('cook-ings'); box.innerHTML = '';
     const pool = SKY.INGREDIENTS.slice(); const good = pool.filter((i) => !i.bad), bad = pool.filter((i) => i.bad);
@@ -490,6 +520,9 @@ const G = SKY.Game = {
     $('o-explore').onclick = () => { $('over').classList.remove('show'); this.state = 'play'; if (!SKY.isTouch) this.lockPointer(); };
     $('o-title').parentNode.querySelector('#o-titlebtn').onclick = () => this.toTitle();
     $('m-close').onclick = () => this.closeMap();
+    $('pp-x').onclick = () => this.closeUI();
+    document.body.appendChild($('prompt')); // above the touch layer so phones can tap it
+    $('prompt').addEventListener('pointerdown', (e) => { if (SKY.Player.target && !this.ui) { I.edges.interact = true; e.preventDefault(); e.stopPropagation(); } });
     const ml = $('maplist');
     for (const c of SKY.World.cities) { const row = document.createElement('div'); row.className = 'mrow'; row.innerHTML = `<b>${c.name}${c.id === 'A51' ? ' 👽' : ''}</b><small>${c.apt ? c.apt.code + ' · ' + c.apt.name : ''}</small>`; const a = document.createElement('button'); a.textContent = '🛬 Approach'; a.onclick = () => this.fastTravel(c.id, 'approach'); const r = document.createElement('button'); r.textContent = '🛫 Runway'; r.onclick = () => this.fastTravel(c.id, 'runway'); const g = document.createElement('button'); g.textContent = '🅿 Gate'; g.onclick = () => this.fastTravel(c.id, 'gate'); row.appendChild(a); row.appendChild(r); row.appendChild(g); ml.appendChild(row); }
     $('cook-go').onclick = () => this.startCooking();
@@ -500,7 +533,7 @@ const G = SKY.Game = {
     $('t-help').onclick = () => $('help').classList.add('show');
     addEventListener('keydown', (e) => { if (this.ui === 'keypad') { if (/^Digit\d$/.test(e.code)) this.keypadPress(e.code.slice(5)); if (e.code === 'Enter') this.keypadPress('E'); if (e.code === 'Backspace') this.keypadPress('C'); } if (this.ui === 'cook' && e.code === 'Enter' && this.cookSel && this.cookSel.length) this.startCooking(); });
   },
-  toTitle() { this.state = 'title'; this.hideScreens(); this.closeUI(); $('title').classList.add('show'); document.body.classList.remove('playing', 'pilot'); this.unlockPointer(); this.plane.reset({ city: SKY.World.city('LA'), mode: 'cruise' }); SKY.Crowd.populate(0, true); SKY.Props.clear(); SKY.Audio.setAlarm(false); },
+  toTitle() { if (SKY.Places) SKY.Places.reset(); this.state = 'title'; this.hideScreens(); this.closeUI(); $('title').classList.add('show'); document.body.classList.remove('playing', 'pilot'); this.unlockPointer(); this.plane.reset({ city: SKY.World.city('LA'), mode: 'cruise' }); SKY.Crowd.populate(0, true); SKY.Props.clear(); SKY.Audio.setAlarm(false); },
   // -------------------------------------------------------------- test hooks
   step(n, inp) {
     inp = inp || {};

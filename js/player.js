@@ -42,7 +42,7 @@ const Props = SKY.Props = {
   update(dt) {
     const pl = this.plane, W = SKY.World;
     const solidL = (x, y, z) => pl.solidLocal(x, y, z);
-    const solidW = (x, y, z) => y < W.heightAt(x, z) || !!W.solidAt(x, y, z);
+    const solidW = (x, y, z) => y < W.heightAt(x, z) || !!W.solidAt(x, y, z) || (SKY.Places && SKY.Places.solid(x, y, z));
     const suc = new THREE.Vector3();
     for (const p of this.list) {
       if (p.held || p.mounted) { p.mesh.position.copy(p.pos); continue; }
@@ -65,6 +65,15 @@ const Props = SKY.Props = {
       if (plane && pl.isOutside(p.pos)) this.toWorld(p);
     }
     this.list = this.list.filter((p) => { if (p.frame === 'world' && p.pos.distanceTo(SKY.Game.camPos) > 3000) { this.scene.remove(p.mesh); return false; } return true; });
+  },
+  // world-frame prop (food trays from stands / restaurants)
+  makeWorld(kind, x, y, z, extra) {
+    const p = this.make(kind, 0, 0, 0, extra); if (p.mesh.parent) p.mesh.parent.remove(p.mesh);
+    p.frame = 'world'; p.pos.set(x, y, z); p.mesh.position.copy(p.pos); this.scene.add(p.mesh); return p;
+  },
+  // carry a world prop into the cabin (boarding with a tray in hand)
+  toPlane(p, lx, ly, lz) {
+    if (p.mesh.parent) p.mesh.parent.remove(p.mesh); p.frame = 'plane'; p.pos.set(lx, ly, lz); p.vel.set(0, 0, 0); p.mesh.position.copy(p.pos); this.plane.interior.add(p.mesh);
   },
   toWorld(p) {
     const pl = this.plane; const wv = pl.dirToWorld(p.vel).add(pl.pointVel(p.pos));
@@ -126,6 +135,7 @@ const P = SKY.Player = {
   solid(x, y, z) {
     if (this.frame === 'plane') return this.plane.solidLocal(x, y, z);
     const W = SKY.World; if (y < W.heightAt(x, z)) return true; if (W.solidAt(x, y, z)) return true;
+    if (SKY.Places && SKY.Places.solid(x, y, z)) return true;
     return false;
   },
   bodyHit(pos) {
@@ -238,7 +248,7 @@ const P = SKY.Player = {
       if (ax === 'y' && this.vel.y < 0) this.grounded = true;
       this.vel[ax] = 0;
     }
-    if (this.frame === 'world') { const h = SKY.World.heightAt(this.pos.x, this.pos.z); if (this.pos.y < h) { impact = Math.max(impact, -this.vel.y); this.pos.y = h; this.vel.y = 0; this.grounded = true; } }
+    if (this.frame === 'world') { const h = Math.max(SKY.World.heightAt(this.pos.x, this.pos.z), SKY.Places ? SKY.Places.groundAt(this.pos.x, this.pos.y + 0.3, this.pos.z) : -1e9); if (this.pos.y < h) { impact = Math.max(impact, -this.vel.y); this.pos.y = h; this.vel.y = 0; this.grounded = true; } }
     if (this.grounded && this.frame === 'world') { if (this.chute) { this.chute = false; SKY.toast('Landed safely! 🙌', 'good'); impact = Math.min(impact, 3); } }
     const lim = this.frame === 'world' ? 13 : 9;
     if (impact > lim) this.hurt((impact - lim) * (this.frame === 'world' ? 6 : 5), impact > 30 ? 'splat' : 'impact');
@@ -251,7 +261,7 @@ const P = SKY.Player = {
       if (door && door.open > 0.5) { const lp = pl.toLocal(this.pos, new THREE.Vector3()); if (lp.x > -2.65 && lp.x < -1.3 && lp.z > D.z0 - 0.4 && lp.z < D.z1 + 0.4 && lp.y > -0.7 && lp.y < 1.2) this.board(); }
     }
   },
-  altAboveGround() { return this.pos.y - SKY.World.heightAt(this.pos.x, this.pos.z); },
+  altAboveGround() { return this.pos.y - Math.max(SKY.World.heightAt(this.pos.x, this.pos.z), SKY.Places ? SKY.Places.groundAt(this.pos.x, this.pos.y, this.pos.z) : -1e9); },
   toWorld() {
     const pl = this.plane;
     if (this.held && this.held.kind) { this.held.held = false; Props.toWorld(this.held); this.held = null; }
@@ -266,6 +276,7 @@ const P = SKY.Player = {
   board() { // enter plane from ground
     const pl = this.plane; this.frame = 'plane'; this.mode = 'foot'; this.chute = false;
     const D = C().DOOR_L1; this.pos.set(-1.0, 0.05, (D.z0 + D.z1) / 2); this.vel.set(0, 0, 0); this.yaw = -Math.PI / 2; this.pitch = 0;
+    const h = this.held; if (h && !h.person && h.frame === 'world') { Props.toPlane(h, -1.0, 1.0, (D.z0 + D.z1) / 2); if (h.meal) SKY.toast('🥡 You brought ' + h.meal.emoji + ' ' + h.meal.name + ' aboard — serve it to someone or eat it yourself.', 'good'); }
     SKY.toast('Boarded the plane', 'good');
   },
   hurt(n, cause) {

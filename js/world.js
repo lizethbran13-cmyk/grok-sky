@@ -616,6 +616,8 @@ function runJobs(budgetMs) {
   curCity = prev;
 }
 W.pendingJobs = () => jobs.length;
+// run builder code (WB.finish etc.) on behalf of a city outside the job queue (enterable interiors)
+W.withCity = (c, fn) => { const prev = curCity; curCity = c; try { return fn(); } finally { curCity = prev; } };
 
 W.build = function (scene) {
   const low = SKY.lowSpec;
@@ -625,6 +627,7 @@ W.build = function (scene) {
     const P = new Planner(c); c.plan = P; curCity = c;
     if (SKY.CityDefs && SKY.CityDefs[c.id]) SKY.CityDefs[c.id](P, c, P.r, low);
     if (SKY.Airport && c.aptDef) SKY.Airport.plan(P, c, c.aptDef);
+    if (SKY.Places) SKY.Places.plan(P, c);
     fillDistricts(P);
     P.lights = P.lights || [];
     if (SKY.Airport && c.apt) SKY.Airport.planLights(P, c);

@@ -152,6 +152,14 @@
   <button id="kp-x">Close</button>
 </div>
 
+<div id="placePanel" class="panel">
+  <div class="pp-head"><h2 id="pp-title">Place</h2><span id="pp-coins">🪙 0</span><button id="pp-x">✕</button></div>
+  <div id="pp-body"></div>
+</div>
+
+<div id="ptrans"><div id="ptrans-t">…</div></div>
+<div id="scopeov"><div class="ring"></div><div class="tip">🔭 look around · USE / JUMP to step back</div></div>
+
 <div id="help" class="panel">
   <h2>Controls</h2>
   <div class="cols">
@@ -163,6 +171,7 @@
       <p><b>Pilot:</b> THR slider on the right, GEAR / FLAP / AP / BRK / ◀ ▶ rudder.</p></div>
   </div>
   <p><b>✈ Airports:</b> land, slow down and taxi along the yellow lines to a free gate (HUD shows the distance). Stop on the gate's yellow stop bar to dock: the jet bridge connects and the front L1 door opens. Leave your seat, walk out the door, down the jet bridge into the terminal (departures board, café, check-in). Walk back down the bridge to reboard, take the controls and throttle up for pushback. <b>T</b> (AP) on the ground = auto-taxi (to a gate after landing, otherwise to the runway &amp; takeoff). Sit in a passenger seat at the gate and the AI crew flies you to the next city.</p>
+  <p><b>🚪 Places:</b> every city has spots you can walk into (glowing gem + ring at the door). Walk into the ring and press F / USE (or tap the orange prompt). Eat to heal (or take food to go on a tray), play slots & arcade games for fun coins 🪙, buy souvenirs, snap 📸 photos (they count for the Tourist badge) and ride elevators 🛗 up to observation decks. MAP → Places lists them all with fast travel.</p>
   <p class="fine">Tips: Takeoff ≈ 130 kts with flaps 1. Approach ≈ 140-150 kts, flaps 2, gear down. Masks drop when the cabin depressurises — stand near one and press USE. Below 10,000 ft the air is breathable.</p>
   <button id="help-x">Close</button>
 </div>
@@ -178,6 +187,9 @@
 <script src="js/plane.js"></script>
 <script src="js/people.js"></script>
 <script src="js/input.js"></script>
+<script src="js/places.js"></script>
+<script src="js/places_defs.js"></script>
+<script src="js/minigames.js"></script>
 <script src="js/player.js"></script>
 <script src="js/game.js"></script>
 </body>

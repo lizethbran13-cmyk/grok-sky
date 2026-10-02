@@ -52,7 +52,7 @@ class Person {
     const set = (i, x, yy, z) => P[i].p.set(x, yy, z);
     const wob = this.woozy > 0 ? Math.sin(this.anim * 3) * 0.12 : 0;
     if (st === 'sit' || st === 'eat' || st === 'slump') {
-      const px = b.x + 0 * fx, pz = b.z + 0.12, py = 0.55;
+      const px = b.x - fx * 0.12, pz = b.z - fz * 0.12, py = b.y + 0.55; // b.y is 0 in the cabin
       const lean = st === 'slump' ? 0.35 : 0;
       set(PELV, px, py, pz);
       set(NECK, px + sx * wob + fx * lean, py + 0.55 - lean * 0.4, pz + fz * lean + 0.02);
@@ -64,7 +64,7 @@ class Person {
         else if (st === 'eat' && s > 0) set(hi, px + sx * 0.12 + fx * 0.2, py + 0.55 + Math.max(0, Math.sin(this.anim * 5)) * 0.2, pz + fz * 0.2);
         else if (st === 'slump') set(hi, px + sx * s * 0.32, py - 0.15, pz);
         else set(hi, px + sx * s * 0.17 + fx * 0.3, py + 0.08, pz + fz * 0.3);
-        set(s < 0 ? FL : FR, px + sx * s * 0.13 + fx * 0.55, 0.03, pz + fz * 0.55);
+        set(s < 0 ? FL : FR, px + sx * s * 0.13 + fx * 0.55, b.y + 0.03, pz + fz * 0.55);
       }
     } else if (st === 'brace') {
       set(PELV, b.x, 0.45, b.z); set(NECK, b.x + fx * 0.3, 0.85, b.z + fz * 0.3); set(HEAD, b.x + fx * 0.45, 0.95, b.z + fz * 0.45);

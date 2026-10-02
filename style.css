@@ -145,3 +145,43 @@ body.touchdev #h-obj { display: none; }
   #help .cols { font-size: 11px; }
   #ttop { right: calc(116px + env(safe-area-inset-right)); }
 }
+/* ---- enterable places ---- */
+#prompt.enter { background: linear-gradient(180deg, #ff9a3c, #e8581c); color: #fff; border: 2px solid #ffe08a; box-shadow: 0 0 14px rgba(255,170,60,.8); font-size: 16px; padding: 8px 16px; animation: ppulse 1.2s ease-in-out infinite; }
+@keyframes ppulse { 50% { box-shadow: 0 0 4px rgba(255,170,60,.3); } }
+#prompt { z-index: 11; position: fixed; }
+body:not(.playing) #prompt { display: none !important; }
+body.touchdev #prompt { pointer-events: auto; }
+#placePanel { width: min(440px, calc(100% - 16px)); max-height: calc(100% - 16px); overflow-y: auto; z-index: 32; }
+.pp-head { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+.pp-head h2 { flex: 1; font-size: 18px; }
+#pp-coins { background: rgba(255,210,60,.18); border: 1px solid rgba(255,210,60,.5); border-radius: 12px; padding: 3px 9px; font-weight: 800; color: #ffd23d; }
+#pp-x { padding: 4px 10px; }
+.prow { display: flex; align-items: center; gap: 6px; background: rgba(255,255,255,.06); border-radius: 10px; padding: 5px 7px; margin: 4px 0; }
+.prow .pe { font-size: 24px; width: 32px; text-align: center; }
+.prow b { flex: 1; text-align: left; font-size: 14px; }
+.prow b small { display: block; font-weight: 400; opacity: .7; font-size: 11px; }
+.prow button { padding: 7px 9px; font-size: 13px; }
+#placePanel .row button { min-width: 80px; }
+#placePanel .big { font-size: 15px; font-weight: 700; text-align: center; min-height: 1.4em; }
+.reels { display: flex; justify-content: center; gap: 10px; margin: 8px 0; }
+.reels span { font-size: 42px; background: #fff; color: #000; border-radius: 12px; width: 64px; height: 64px; display: flex; align-items: center; justify-content: center; box-shadow: inset 0 0 0 4px #ffd23d; }
+.bj { font-size: 18px; text-align: center; line-height: 1.8; }
+#inv { display: block; margin: 0 auto; width: 240px; height: 280px; image-rendering: pixelated; border: 3px solid #ff2bd6; border-radius: 6px; background: #05050f; touch-action: none; }
+button.pad { font-size: 26px; min-width: 110px !important; padding: 10px 0; touch-action: none; user-select: none; -webkit-user-select: none; }
+.meter { position: relative; height: 26px; background: rgba(255,255,255,.12); border-radius: 13px; margin: 12px 4px; overflow: hidden; }
+.meter i { position: absolute; top: 0; bottom: 0; width: 14%; background: rgba(87,255,122,.6); box-shadow: 0 0 10px #57ff7a; }
+.meter b { position: absolute; top: -2px; bottom: -2px; width: 5px; margin-left: -2px; background: #ffd23d; }
+button.big { font-size: 20px; padding: 12px 22px; }
+#ptrans { position: fixed; inset: 0; background: #000; z-index: 40; display: none; align-items: center; justify-content: center; opacity: 0; pointer-events: none; }
+#ptrans-t { color: #fff; font-size: 26px; font-weight: 800; letter-spacing: 1px; text-align: center; padding: 0 20px; font-variant-numeric: tabular-nums; }
+#scopeov { position: fixed; inset: 0; z-index: 12; display: none; pointer-events: none; background: radial-gradient(circle at 50% 50%, transparent 0, transparent 34vmin, #000 35vmin); }
+#scopeov .ring { position: absolute; left: 50%; top: 50%; width: 70vmin; height: 70vmin; transform: translate(-50%, -50%); border-radius: 50%; border: 3px solid rgba(255,255,255,.35); box-shadow: inset 0 0 40px rgba(0,0,0,.6); }
+#scopeov .ring::before, #scopeov .ring::after { content: ''; position: absolute; background: rgba(255,255,255,.35); }
+#scopeov .ring::before { left: 50%; top: 10%; bottom: 10%; width: 1px; } #scopeov .ring::after { top: 50%; left: 10%; right: 10%; height: 1px; }
+#scopeov .tip { position: absolute; bottom: 8%; width: 100%; text-align: center; color: #fff; font-weight: 700; text-shadow: 0 1px 3px #000; }
+#placelist h3 { margin: 8px 0 4px; font-size: 14px; }
+.pcity { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; background: rgba(255,255,255,.05); border-radius: 8px; padding: 4px 6px; margin: 3px 0; }
+.pcity b { min-width: 92px; text-align: left; font-size: 12px; }
+.pcity button { padding: 5px 8px; font-size: 12px; }
+.pcity button.seen { border-color: rgba(87,255,122,.6); }
+@media (max-height: 500px) { #placePanel { padding: 8px 12px; } .reels span { width: 52px; height: 52px; font-size: 32px; } #inv { width: 180px; height: 210px; } button.pad { padding: 6px 0; } .prow { padding: 3px 6px; margin: 2px 0; } .pp-head h2 { font-size: 15px; } }
