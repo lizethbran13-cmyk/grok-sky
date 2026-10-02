@@ -22,7 +22,7 @@ class VoxGrid {
     this.n = nx * ny * nz;
     this.mat = new Uint8Array(this.n); this.part = new Uint8Array(this.n);
     this.hp = new Float32Array(this.n); this.inst = new Int32Array(this.n).fill(-1);
-    this.visit = new Uint32Array(this.n);
+    this.visit = null; this.groundFloor = false;
     this.origin = new THREE.Vector3(); // local position of cell (0,0,0) min corner
     this.group = new THREE.Group();
     this.meshes = [null, null, null]; this.cellOf = [null, null, null];
@@ -43,16 +43,37 @@ class VoxGrid {
   center(id, out) { const [i, j, k] = this.ijk(id); return out.set(this.origin.x + (i + 0.5) * this.s, this.origin.y + (j + 0.5) * this.s, this.origin.z + (k + 0.5) * this.s); }
   // fill helper: box in cell coords inclusive
   box(i0, j0, k0, i1, j1, k1, m, p) { for (let k = k0; k <= k1; k++) for (let j = j0; j <= j1; j++) for (let i = i0; i <= i1; i++) this.set(i, j, k, m, p); }
+  // a voxel is drawn only if at least one face can be seen (neighbour empty, glass, or grid edge)
+  exposed(id) {
+    const nx = this.nx, ny = this.ny, nz = this.nz, nxy = nx * ny;
+    const i = id % nx, t = (id - i) / nx, j = t % ny, k = (t - j) / ny;
+    if (i === 0 || k === 0 || i === nx - 1 || j === ny - 1 || k === nz - 1) return true;
+    if (j === 0 && !this.groundFloor) return true;
+    const M = this.mat, P = SKY.PAL;
+    const occ = (n) => { const m = M[n]; return m !== 0 && !(P[m][2] & 1); };
+    return !(occ(id - 1) && occ(id + 1) && (j === 0 || occ(id - nx)) && occ(id + nx) && occ(id - nxy) && occ(id + nxy));
+  }
+  addInst(id) {
+    const m = this.mat[id], t = typeOf(m), mesh = this.meshes[t]; if (!mesh || this.inst[id] >= 0) return;
+    const ii = mesh.count++;
+    const s = this.s, i = id % this.nx, tt = (id - i) / this.nx, j = tt % this.ny, k = (tt - j) / this.ny;
+    _m4.makeTranslation(this.origin.x + (i + 0.5) * s, this.origin.y + (j + 0.5) * s, this.origin.z + (k + 0.5) * s); mesh.setMatrixAt(ii, _m4);
+    _c.setHex(SKY.PAL[m][0]); const v = t === 2 ? 1 : 0.9 + ((id * 2654435761) >>> 0) % 1000 / 1000 * 0.16; _c.multiplyScalar(v);
+    mesh.instanceColor.setXYZ(ii, _c.r, _c.g, _c.b);
+    this.cellOf[t][ii] = id; this.inst[id] = ii;
+    mesh.instanceMatrix.needsUpdate = true; mesh.instanceColor.needsUpdate = true;
+  }
   build(parent) {
     const cnt = [0, 0, 0];
     for (let id = 0; id < this.n; id++) if (this.mat[id]) cnt[typeOf(this.mat[id])]++;
     const s = this.s;
+    if (this.geo) this.geo.dispose();
     this.geo = new THREE.BoxGeometry(s, s, s);
     const ex = new THREE.Vector3(this.nx * s, this.ny * s, this.nz * s);
     this.geo.boundingSphere = new THREE.Sphere(this.origin.clone().addScaledVector(ex, 0.5), ex.length() * 0.5 + s);
     this.geo.boundingBox = new THREE.Box3(this.origin.clone(), this.origin.clone().add(ex));
     for (let t = 0; t < 3; t++) {
-      if (this.meshes[t]) { this.group.remove(this.meshes[t]); this.meshes[t] = null; }
+      if (this.meshes[t]) { this.group.remove(this.meshes[t]); this.meshes[t].dispose(); this.meshes[t] = null; }
       if (!cnt[t]) continue;
       const mesh = new THREE.InstancedMesh(this.geo, sharedMat(t), cnt[t]);
       mesh.count = 0; mesh.matrixAutoUpdate = false;
@@ -61,36 +82,47 @@ class VoxGrid {
       mesh.instanceColor = new THREE.InstancedBufferAttribute(new Float32Array(cnt[t] * 3), 3);
       this.group.add(mesh);
     }
-    this.count = 0; this.partCount.fill(0);
-    const p = new THREE.Vector3();
+    this.count = 0; this.partCount.fill(0); this.inst.fill(-1);
     for (let id = 0; id < this.n; id++) {
       const m = this.mat[id]; if (!m) continue;
-      const t = typeOf(m), mesh = this.meshes[t], ii = mesh.count++;
-      this.center(id, p); _m4.makeTranslation(p.x, p.y, p.z); mesh.setMatrixAt(ii, _m4);
-      _c.setHex(SKY.PAL[m][0]); const v = t === 2 ? 1 : 0.9 + ((id * 2654435761) >>> 0) % 1000 / 1000 * 0.16; _c.multiplyScalar(v);
-      mesh.instanceColor.setXYZ(ii, _c.r, _c.g, _c.b);
-      this.cellOf[t][ii] = id; this.inst[id] = ii; this.count++; this.partCount[this.part[id]]++;
+      this.count++; this.partCount[this.part[id]]++;
+      if (this.exposed(id)) this.addInst(id);
     }
     this.partCount0.set(this.partCount); this.count0 = this.count;
     for (const m of this.meshes) if (m) { m.instanceMatrix.needsUpdate = true; m.instanceColor.needsUpdate = true; }
     if (parent) parent.add(this.group);
     return this;
   }
+  drawn() { let n = 0; for (const m of this.meshes) if (m) n += m.count; return n; }
+  dispose() { for (const m of this.meshes) if (m) { if (m.parent) m.parent.remove(m); m.dispose(); } this.meshes = [null, null, null]; if (this.geo) this.geo.dispose(); this.geo = null; }
   remove(id) {
     const m = this.mat[id]; if (!m) return;
-    const t = typeOf(m), mesh = this.meshes[t], ii = this.inst[id], last = mesh.count - 1;
-    if (ii !== last) {
-      const a = mesh.instanceMatrix.array, c = mesh.instanceColor.array;
-      for (let q = 0; q < 16; q++) a[ii * 16 + q] = a[last * 16 + q];
-      for (let q = 0; q < 3; q++) c[ii * 3 + q] = c[last * 3 + q];
-      const moved = this.cellOf[t][last]; this.cellOf[t][ii] = moved; this.inst[moved] = ii;
+    const ii = this.inst[id];
+    if (ii >= 0) {
+      const t = typeOf(m), mesh = this.meshes[t], last = mesh.count - 1;
+      if (ii !== last) {
+        const a = mesh.instanceMatrix.array, c = mesh.instanceColor.array;
+        for (let q = 0; q < 16; q++) a[ii * 16 + q] = a[last * 16 + q];
+        for (let q = 0; q < 3; q++) c[ii * 3 + q] = c[last * 3 + q];
+        const moved = this.cellOf[t][last]; this.cellOf[t][ii] = moved; this.inst[moved] = ii;
+      }
+      mesh.count--; mesh.instanceMatrix.needsUpdate = true; mesh.instanceColor.needsUpdate = true;
     }
-    mesh.count--; this.inst[id] = -1; this.mat[id] = 0; this.hp[id] = 0;
+    this.inst[id] = -1; this.mat[id] = 0; this.hp[id] = 0;
     this.partCount[this.part[id]]--; this.count--;
-    mesh.instanceMatrix.needsUpdate = true; mesh.instanceColor.needsUpdate = true;
     this.version++;
+    // neighbours that were hidden inside become visible
+    if (!this.meshes[0] && !this.meshes[1] && !this.meshes[2]) return;
+    const nx = this.nx, nxy = nx * this.ny, i = id % nx, tt = (id - i) / nx, j = tt % this.ny, k = (tt - j) / this.ny;
+    const M = this.mat, I = this.inst;
+    if (i > 0 && M[id - 1] && I[id - 1] < 0) this.addInst(id - 1);
+    if (i < nx - 1 && M[id + 1] && I[id + 1] < 0) this.addInst(id + 1);
+    if (j > 0 && M[id - nx] && I[id - nx] < 0) this.addInst(id - nx);
+    if (j < this.ny - 1 && M[id + nx] && I[id + nx] < 0) this.addInst(id + nx);
+    if (k > 0 && M[id - nxy] && I[id - nxy] < 0) this.addInst(id - nxy);
+    if (k < this.nz - 1 && M[id + nxy] && I[id + nxy] < 0) this.addInst(id + nxy);
   }
-  forEachSolid(fn) { for (let t = 0; t < 3; t++) { const m = this.meshes[t]; if (!m) continue; const co = this.cellOf[t]; for (let q = m.count - 1; q >= 0; q--) fn(co[q]); } }
+  forEachSolid(fn) { const M = this.mat; for (let id = this.n - 1; id >= 0; id--) if (M[id]) fn(id); }
   // damage voxels in sphere (local coords). returns array of {x,y,z,col,part,id}
   damageSphere(c, r, power, maxHp) {
     const s = this.s, o = this.origin, out = [];
@@ -143,6 +175,7 @@ class VoxGrid {
   }
   // flood fill from anchors; returns array of components (arrays of ids) not connected
   floating(isAnchor) {
+    if (!this.visit) this.visit = new Uint32Array(this.n);
     const stamp = ++stampGlobal; const vis = this.visit; const q = []; const nx = this.nx, ny = this.ny, nz = this.nz, nxy = nx * ny;
     this.forEachSolid((id) => { if (isAnchor(id)) { vis[id] = stamp; q.push(id); } });
     const spread = (queue, st, collect) => {
@@ -317,7 +350,7 @@ class Debris {
     _t.copy(r).cross(J).multiplyScalar(this.invI); this.w.add(_t);
     if (this.w.lengthSq() > 64) this.w.setLength(8);
   }
-  dispose() { this.scene.remove(this.group); if (this.grid.geo) this.grid.geo.dispose(); }
+  dispose() { this.scene.remove(this.group); this.grid.dispose(); }
 }
 SKY.Debris = Debris;
 })();

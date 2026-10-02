@@ -85,6 +85,8 @@ body.pilot #cross { display: none; }
 #maplist { display: grid; grid-template-columns: 1fr 1fr; gap: 5px; margin: 8px 0; }
 .mrow { display: flex; gap: 5px; align-items: center; background: rgba(255,255,255,.05); padding: 4px 6px; border-radius: 8px; }
 .mrow b { flex: 1; text-align: left; font-size: 13px; }
+.mrow small { flex: 1.2; text-align: left; font-size: 10px; opacity: .7; }
+@media (max-width: 900px) { .mrow small { display: none; } .mrow button { padding: 5px 6px; font-size: 11px; } }
 .mrow button { padding: 6px 8px; font-size: 12px; }
 
 /* ---------- panels ---------- */

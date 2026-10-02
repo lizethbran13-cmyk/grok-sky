@@ -2,7 +2,8 @@ GROK SKY - a voxel airliner sandbox
 ===================================
 
 GROK SKY is a fully destructible voxel airliner sandbox that runs in a web
-browser. You can fly it between six cartoon-sized cities. You can also walk the
+browser. You can fly it between six cartoon-sized cities (plus Area 51), each laid out like
+the real one and each with a small working airport. You can also walk the
 cabin, cook in the galley, open a door at 25,000 ft, or try to get into the
 locked cockpit. Content is cartoony: injuries are ragdoll flops and health bars,
 and spoiled food only makes people woozy.
@@ -26,7 +27,14 @@ style.css      styles; responsive and safe-area aware
 three.min.js   three.js r128 (included in the folder)
 js/util.js     namespace, palette, WebAudio synth (all sounds are generated in code), labels, toasts
 js/voxel.js    voxel grids (instanced cubes), DDA raycast, connectivity and floating-chunk detection, particles, rigid debris
-js/world.js    terrain, ocean, 7 zones, destructible buildings and landmarks, runways, clouds, minimap
+js/world.js    terrain, ocean, 7 zones, lazy per-city build/unload, city planner (roads, districts, water,
+               ground decals), destructible buildings, far LOD impostors, per-city minimaps
+js/cities.js   mini Los Angeles and mini Las Vegas (street layout + landmarks), shared builders
+js/cities2.js  Area 51, Mexico City, New York, Paris and Tokyo, plus the bridge builder
+js/airport.js  the 7 mini airports: runways/taxiways/apron markings, terminal with gates and jet bridges,
+               tower, hangars, parked airliners, lights, windsock, docking, pushback, auto-taxi, routes
+js/ambient.js  cheap instanced life: cars on the streets, people walking, baggage carts and fuel trucks,
+               Bellagio fountains, Luxor beam
 js/plane.js    the voxel airliner: build, flight model, autopilot, ground and building collisions, damage,
                parts detaching, doors, pressure and decompression, oxygen masks, galley oven
 js/people.js   passengers, crew and pilots: verlet ragdolls, poses, health, AI
@@ -83,19 +91,62 @@ THINGS TO DO
   crowbar is best, the hammer is slower, and the extinguisher works too. The pilots fly on
   autopilot. If they get knocked out or woozy, the autopilot gives up after a while and somebody
   has to take the seat. Ask a pilot three times and they'll hand you the controls.
-* World: Los Angeles (HOLLYWOOD sign, beach, palms), Las Vegas (the Strip, pyramid, Stratosphere,
-  GROK sign), Area 51 (hangars, radar, a suspicious saucer: touch it), Mexico City (pyramid, Angel
-  of Independence, cathedral), New York (skyline, Empire State, Statue of Liberty, Central Park),
-  Paris (Eiffel Tower, Arc de Triomphe, Louvre pyramid, Seine) and Tokyo (Tokyo Tower, neon towers,
-  torii gate, Mt Fuji). Each has an airport and runway. Distances are hugely compressed: cities
-  are 15-40 km apart. Use the map (Tab) to fast travel to a final approach or a runway.
+* Airports: every city has a small working airport (LAX, LAS Harry Reid, XTA Groom Lake, MEX,
+  JFK, CDG, HND Haneda). Each one has numbered runways with markings, approach/edge/threshold
+  lights and PAPIs, taxiways, an apron, a terminal with 2-4 gates and jet bridges, a control tower,
+  hangars, parked airliners, a windsock, an airport sign and a signature building (LAX Theme
+  Building, JFK TWA terminal, CDG Terminal 1 ring, Haneda pagoda...).
+  - Land, then taxi to a free gate (follow the yellow line; the HUD and minimap show the way) or
+    press T / AP on the ground for auto-taxi. Stop on the gate's stop bar (nose toward the
+    terminal) and the plane docks: the jet bridge swings out and the front-left (L1) door opens.
+  - Leave the seat, walk out the L1 door, down the jet bridge and into the terminal: gate seats,
+    departures board, cafe (+HP) and check-in desks. Walk back down the bridge into the door to
+    reboard.
+  - Take the controls and throttle up (or press T) to push back. The tug pushes you out, then T
+    auto-taxis you to the runway and the autopilot takes off. If you sit in a passenger seat at a
+    gate instead, the pilots push back and fly you to the next city.
+  - The map (Tab) lists each airport code with Approach / Runway / Gate fast travel.
+* Cities (compressed, laid out like the real ones; everything is destructible voxels):
+  - Los Angeles: HOLLYWOOD sign and Griffith Observatory on the hills, Downtown LA towers
+    (US Bank, Wilshire Grand, City Hall, Disney Hall), Hollywood Blvd, Wilshire/Sunset palm
+    boulevards and freeways, Santa Monica pier with Ferris wheel and coaster, beach, LAX by the coast.
+  - Las Vegas: one Strip boulevard south to north: Welcome to Fabulous Las Vegas sign, Mandalay,
+    Luxor pyramid + beam, Excalibur, New York-New York, MGM, Aria, Cosmopolitan, Bellagio with
+    its fountain lake, Paris (Eiffel replica), Caesars, High Roller, Mirage volcano, Venetian,
+    Treasure Island, Wynn, Sahara, STRAT tower. Fremont Street canopy downtown. LAS just east of
+    the south end of the Strip.
+  - Area 51: separate, out on the dry lakebed: Groom Lake strip, big hangars, radar dome, fence
+    and warning signs, and a suspicious saucer (touch it).
+  - Mexico City: Zocalo with flag, Cathedral, National Palace, Templo Mayor, Torre
+    Latinoamericana, Bellas Artes, Paseo de la Reforma with the Angel of Independence,
+    Chapultepec park, lake and castle, Teotihuacan pyramids outside the city, volcanoes.
+  - New York: Manhattan grid between the Hudson and East rivers, Broadway, Central Park
+    (with reservoir) in the right spot, Times Square neon, Empire State, Chrysler, Flatiron,
+    One WTC at the south tip, Brooklyn Bridge, Statue of Liberty and Ellis Island in the harbor,
+    JFK out in Queens.
+  - Paris: the Seine curving through with bridges and the Ile de la Cite, Eiffel Tower and
+    Trocadero, Arc de Triomphe with the Champs-Elysees leading to Concorde, Tuileries and the
+    Louvre pyramid, Notre-Dame, Sacre-Coeur on its hill, Opera, La Defense, Haussmann blocks,
+    the Peripherique. CDG to the northeast.
+  - Tokyo: Shibuya scramble crossing with neon and screens, Tokyo Tower, Skytree, Imperial Palace
+    with its moat, Senso-ji gate and pagoda, Ginza, Shinjuku towers, Rainbow Bridge to Odaiba,
+    Mt Fuji in the distance, Haneda on the bay.
+  Distances between cities are hugely compressed (15-40 km). Walking around a city on foot works:
+  streets have cars and people. Visiting 5 landmarks earns an achievement.
 * Achievements are saved in your browser (check the pause menu).
 
 NOTES / KNOWN ROUGH EDGES
 -------------------------
 * The flight model is arcade-style. Shown altitude is scaled x4 so cruise reads about 25,000 ft
-  over a compact world. The autopilot does not land; you do that yourself.
-* Walking around outside on the ground is a bonus mode. Collision with the plane from outside
-  is approximate. Board through the front left door when the plane has stopped.
+  over a compact world. The autopilot taxis and takes off but does not land; you do that yourself.
+* Collision with the plane from outside is approximate. Board through the front left door when
+  the plane has stopped (at a gate: walk down the jet bridge into the door).
 * On phones, quality drops automatically: fewer debris pieces, shorter view distance, lower
-  pixel ratio.
+  pixel ratio, fewer district buildings, cars and people.
+* Performance: only the city you are near is built (in small time slices so the game keeps
+  running); far cities are a single merged impostor. Inside a city, voxel blocks beyond about
+  1 km (650 m on phones) are swapped for merged box impostors, grouped into large cells so far
+  scenery is a handful of draw calls. Hidden voxels are not drawn, and cars, people and lights are
+  instanced. Damaged buildings drop out of the impostors.
+* City layouts are compressed caricatures; building interiors (other than the airport terminals)
+  are hollow shells.

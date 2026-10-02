@@ -181,7 +181,8 @@ const P = SKY.Player = {
     if (I.hold('thrDown')) pl.throttle = clamp(pl.throttle - dt * 0.5, 0, 1);
     if (I.edge('gear')) { if (!pl.gearBroken) { pl.gearDown = !pl.gearDown; SKY.toast('Gear ' + (pl.gearDown ? 'DOWN' : 'UP')); } }
     if (I.edge('flaps')) { pl.flaps = (pl.flaps + 1) % 3; SKY.toast('Flaps ' + pl.flaps); }
-    if (I.edge('ap')) { pl.ap.on = !pl.ap.on; if (pl.ap.on) { pl.ap.alt = Math.max(pl.pos.y, 400); pl.ap.hdg = pl.heading() * Math.PI / 180; pl.ap.dest = null; pl.ap.mode = 'cruise'; pl.ap.by = 'player'; } SKY.toast('Autopilot ' + (pl.ap.on ? 'ON (holding alt/hdg)' : 'OFF')); }
+    if (I.edge('ap') && !pl.ap.on && pl.onGround && SKY.Airport && SKY.Airport.groundAP(pl)) { /* ground autopilot: auto-taxi / pushback / takeoff */ }
+    else if (I.edge('ap')) { if (pl.ap.on && SKY.Airport) SKY.Airport.taxi = null; pl.ap.on = !pl.ap.on; if (pl.ap.on) { pl.ap.alt = Math.max(pl.pos.y, 400); pl.ap.hdg = pl.heading() * Math.PI / 180; pl.ap.dest = null; pl.ap.mode = 'cruise'; pl.ap.by = 'player'; } SKY.toast('Autopilot ' + (pl.ap.on ? 'ON (holding alt/hdg)' : 'OFF')); }
     pl.brake = I.hold('brake');
     if (pl.ap.on && (Math.abs(ctl.pitch) > 0.3 || Math.abs(ctl.roll) > 0.3)) { pl.ap.on = false; SKY.toast('Autopilot disengaged'); }
     this.ctl = pl.ap.on ? null : ctl;
@@ -231,7 +232,7 @@ const P = SKY.Player = {
       _v.copy(this.pos); _v[ax] += d;
       if (!this.bodyHit(_v)) { this.pos[ax] = _v[ax]; continue; }
       if (ax !== 'y' && this.frame !== 'none') { // step up
-        _v.y += 0.45; if (!this.bodyHit(_v) && this.vel.y <= 0.5) { this.pos.copy(_v); continue; }
+        _v.y += this.frame === 'world' ? 0.55 : 0.45; if (!this.bodyHit(_v) && this.vel.y <= 0.5) { this.pos.copy(_v); continue; }
       }
       impact = Math.max(impact, Math.abs(this.vel[ax]));
       if (ax === 'y' && this.vel.y < 0) this.grounded = true;
@@ -244,6 +245,11 @@ const P = SKY.Player = {
     // left the plane?
     if (this.frame === 'plane' && pl.isOutside(this.pos.clone().setY(this.pos.y + 0.9))) this.toWorld();
     if (this.frame === 'world' && this.pos.y < -50) this.pos.y = 5;
+    // walked back through an open L1 door (e.g. from the jet bridge) → reboard
+    if (this.frame === 'world' && !pl.crashed && pl.speed() < 2) {
+      const D = C().DOOR_L1, door = pl.cabinDoors.find((d) => d.D === D);
+      if (door && door.open > 0.5) { const lp = pl.toLocal(this.pos, new THREE.Vector3()); if (lp.x > -2.65 && lp.x < -1.3 && lp.z > D.z0 - 0.4 && lp.z < D.z1 + 0.4 && lp.y > -0.7 && lp.y < 1.2) this.board(); }
+    }
   },
   altAboveGround() { return this.pos.y - SKY.World.heightAt(this.pos.x, this.pos.z); },
   toWorld() {

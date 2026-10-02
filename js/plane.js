@@ -169,7 +169,7 @@ class Plane {
   }
   // ------------------------------------------------------------------ reset / placement
   reset(opts) {
-    if (this.grid) { this.group.remove(this.grid.group); if (this.grid.geo) this.grid.geo.dispose(); }
+    if (this.grid) { this.group.remove(this.grid.group); this.grid.dispose(); }
     this.grid = this.buildGrid(); this.grid.build(this.group);
     this.computeSamples();
     for (const s of this.seats) s.occupant = null;
@@ -492,7 +492,7 @@ class Plane {
   buildingHits(dt, fxWorld) {
     const W = SKY.World; const spd = this.vel.length();
     if (this.pos.y > 700) { this.prevSamples = null; return; }
-    const nc = W.nearestCity(this.pos.x, this.pos.z); if (nc.dist > 4200) { this.prevSamples = null; return; }
+    const nc = W.nearestCity(this.pos.x, this.pos.z); if (nc.dist > 6500) { this.prevSamples = null; return; }
     // broadphase
     const R0 = 18 + spd * dt;
     let near = false; for (const s of nc.city.structs) if (this.pos.x + R0 > s.min.x && this.pos.x - R0 < s.max.x && this.pos.y + R0 > s.min.y && this.pos.y - R0 < s.max.y && this.pos.z + R0 > s.min.z && this.pos.z - R0 < s.max.z) { near = true; break; }
@@ -604,8 +604,10 @@ class Plane {
     if (ap.dest) { tHdg = Math.atan2(ap.dest.x - this.pos.x, -(ap.dest.z - this.pos.z)); const dd = Math.hypot(ap.dest.x - this.pos.x, ap.dest.z - this.pos.z); if (dd < 3500) tHdg = hdg + 0.35; }
     let tAlt = ap.alt; if (this.decomp || this.pressure < 0.9) tAlt = Math.min(tAlt, SKY.feetToY(9000));
     let tSpd = this.pos.y < 900 ? 150 : 200;
-    if (this.onGround || ap.mode === 'takeoff') {
-      ap.mode = 'takeoff'; out.yaw = clamp(-((this.pos.x - (ap.rwyX ?? this.pos.x)) * 0.04) - wrap(ap.hdg - hdg) * -2, -1, 1);
+    // ground modes: hold (parked / waiting), taxi (pure-pursuit along an airport route), takeoff (explicit only)
+    if (ap.mode === 'taxi' && this.onGround) { const c = SKY.Airport ? SKY.Airport.taxiCtl(this, dt) : out; if (ap.mode === 'taxi') return c; }
+    if (this.onGround && ap.mode !== 'takeoff') { ap.mode = 'hold'; this.throttle = 0; this.brake = true; out.yaw = 0; return out; }
+    if (ap.mode === 'takeoff') { out.yaw = clamp(-((this.pos.x - (ap.rwyX ?? this.pos.x)) * 0.04) - wrap(ap.hdg - hdg) * -2, -1, 1);
       this.throttle = 1; this.brake = false; this.flaps = 1;
       if (spd > 70) out.pitch = clamp((0.16 - pitch) * 3, -1, 1);
       if (this.altitude() > 25) { this.gearDown = false; }
