@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0b1a33">
+<title>GROK SKY — Voxel Airliner Chaos</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Ctext y=%2214%22 font-size=%2214%22%3E%E2%9C%88%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="game"></div>
+
+<div id="hud">
+  <div id="hud-tl">
+    <div class="logo-s">GROK<span>SKY</span></div>
+    <div id="h-city">—</div>
+    <div id="h-mode">—</div>
+    <div id="h-obj"></div>
+  </div>
+  <div id="compass">N 000°</div>
+  <div id="instr">
+    <div class="row"><label>ALT</label><span id="i-alt">0 ft</span></div>
+    <div class="row"><label>SPD</label><span id="i-spd">0 kts</span></div>
+    <div class="row"><label>V/S</label><span id="i-vs">0</span></div>
+    <div class="row"><label>HDG</label><span id="i-hdg">000°</span></div>
+    <div class="row thr"><label>THR</label><div class="thrbar"><i id="i-thr"></i></div><span id="i-thrv">0%</span></div>
+    <div id="i-flags"></div>
+  </div>
+  <canvas id="minimap" width="150" height="150"></canvas>
+  <div id="vitals">
+    <div class="bar"><label>❤️ HP</label><div><i id="v-hp" class="hp"></i></div><span id="v-hpt">100</span></div>
+    <div class="bar"><label>🫁 O₂</label><div><i id="v-o2" class="o2"></i></div><span id="v-o2t">100</span></div>
+    <div class="bar"><label>🎈 CABIN</label><div><i id="v-cab" class="cab"></i></div><span id="v-cabt">100%</span></div>
+    <div class="bar"><label>✈️ PLANE</label><div><i id="v-int" class="int"></i></div><span id="v-intt">100%</span></div>
+  </div>
+  <div id="toolbar"></div>
+  <div id="cross"></div>
+  <div id="prompt"></div>
+  <div id="alerts"></div>
+  <div id="toasts"></div>
+  <div id="labels"></div>
+  <div id="vignette"></div>
+  <div id="woozy"></div>
+  <div id="flash"></div>
+</div>
+
+<div id="touch">
+  <div id="joyzone"><div id="joybase"><div id="joyknob"></div></div></div>
+  <div id="lookzone"></div>
+  <div id="tbtns">
+    <button class="tb big" data-act="action" data-hold="action">💥<small>ACTION</small></button>
+    <button class="tb" data-act="interact">✋<small>USE</small></button>
+    <button class="tb" data-act="grab">🫳<small>GRAB</small></button>
+    <button class="tb" data-act="jump" data-hold="jump">⤒<small>JUMP</small></button>
+  </div>
+  <div id="ttop">
+    <button class="ts" data-act="toolNext">🔧</button>
+    <button class="ts" data-act="cam">🎥</button>
+    <button class="ts" data-act="map">🗺</button>
+    <button class="ts" data-act="pause">⏸</button>
+  </div>
+  <div id="tpilot">
+    <button class="ts" data-act="gear">GEAR</button>
+    <button class="ts" data-act="flaps">FLAP</button>
+    <button class="ts" data-act="ap">AP</button>
+    <button class="ts" data-act="brakeE" data-hold="brake">BRK</button>
+    <button class="ts" data-act="yawLE" data-hold="yawL">◀</button>
+    <button class="ts" data-act="yawRE" data-hold="yawR">▶</button>
+  </div>
+  <div id="thrtrack"><div id="thrknob">THR</div></div>
+</div>
+
+<div id="title" class="screen show">
+  <div class="card">
+    <h1 class="logo">GROK<span>SKY</span></h1>
+    <p class="tag">Voxel airliner chaos · fly it · break it · cook in it</p>
+    <h3>Start city</h3>
+    <div id="cities"></div>
+    <h3>How do you start?</h3>
+    <div class="modes">
+      <button class="mode sel" data-mode="pilot">🧑‍✈️ <b>Captain</b><span>On the runway, you fly</span></button>
+      <button class="mode" data-mode="cabin">💺 <b>Passenger</b><span>Cruising, pilots fly</span></button>
+    </div>
+    <button id="play" class="go">▶ PLAY</button>
+    <button id="t-help" class="small">Controls</button>
+    <p class="fine">Cartoon physics · no gore: injuries are ragdoll flops &amp; health bars.</p>
+  </div>
+</div>
+
+<div id="pause" class="screen">
+  <div class="card">
+    <h2>⏸ Paused</h2>
+    <div class="grid2">
+      <button id="p-resume" class="go">▶ Resume</button>
+      <button id="p-map">🗺 Flight map / fast travel</button>
+      <button id="p-pax">➕ Add passenger</button>
+      <button id="p-crew">➕ Add crew</button>
+      <button id="p-invert">Invert pitch: OFF</button>
+      <button id="p-mute">Sound: ON</button>
+      <button id="p-quality">Graphics</button>
+      <button id="p-restart">↻ Restart flight</button>
+      <button id="p-title">🏠 Title screen</button>
+    </div>
+    <h3>Achievements</h3>
+    <div id="achlist"></div>
+  </div>
+</div>
+
+<div id="over" class="screen">
+  <div class="card">
+    <h2 id="o-title">💥 CRASHED!</h2>
+    <p id="o-sub"></p>
+    <p id="o-stats"></p>
+    <div class="grid2">
+      <button id="o-retry" class="go">↻ Retry</button>
+      <button id="o-map">🗺 Fast travel (new plane)</button>
+      <button id="o-explore">🚶 Explore the wreck</button>
+      <button id="o-titlebtn">🏠 Title</button>
+    </div>
+  </div>
+</div>
+
+<div id="mapScreen" class="screen">
+  <div class="card wide">
+    <h2>🗺 Flight plan — fast travel</h2>
+    <canvas id="bigmap" width="660" height="400"></canvas>
+    <div id="maplist"></div>
+    <button id="m-close">✕ Close</button>
+  </div>
+</div>
+
+<div id="cook" class="panel">
+  <h2>🍳 Galley oven</h2>
+  <p>Pick 1–3 ingredients. Check the labels... some of these have been in the fridge a <i>while</i>.</p>
+  <div id="cook-ings"></div>
+  <div class="row"><button id="cook-go" class="go">🔥 Into the oven</button><button id="cook-x">Cancel</button></div>
+  <p class="fine">Take the tray out at 7–10 s for PERFECT. Too long and it burns... much too long and you'll need the extinguisher.</p>
+</div>
+
+<div id="keypad" class="panel">
+  <h2>🔒 Flight deck access</h2>
+  <div id="kp-disp">____</div>
+  <div class="kp">
+    <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+    <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+    <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+    <button data-k="C">⌫</button><button data-k="0">0</button><button data-k="E">✔</button>
+  </div>
+  <button id="kp-x">Close</button>
+</div>
+
+<div id="help" class="panel">
+  <h2>Controls</h2>
+  <div class="cols">
+    <div><h3>🖥 Desktop</h3>
+      <p><b>On foot:</b> WASD move · mouse look · Space jump · F use/interact · Left click tool · Right click (or R) grab/throw · X drop · 1-3 tools (hands/hammer/crowbar) · V camera · Tab map · Esc pause · P add passenger · M mute</p>
+      <p><b>Pilot:</b> W/S pitch (W = nose down) · A/D roll · Q/E rudder · Shift/Ctrl throttle · G gear · Z flaps · B brakes · T autopilot · V chase/cockpit camera · F leave seat</p></div>
+    <div><h3>📱 Phone</h3>
+      <p>Left thumb: joystick (walk / pitch+roll) · Right side: drag to look · 💥 ACTION = use tool / spray · ✋ USE = interact · 🫳 GRAB = grab/throw · ⤒ JUMP (also parachute!) · 🔧 cycle tool · 🎥 camera · 🗺 map</p>
+      <p><b>Pilot:</b> THR slider on the right, GEAR / FLAP / AP / BRK / ◀ ▶ rudder.</p></div>
+  </div>
+  <p class="fine">Tips: Takeoff ≈ 130 kts with flaps 1. Approach ≈ 140-150 kts, flaps 2, gear down. Masks drop when the cabin depressurises — stand near one and press USE. Below 10,000 ft the air is breathable.</p>
+  <button id="help-x">Close</button>
+</div>
+
+<script src="three.min.js"></script>
+<script src="js/util.js"></script>
+<script src="js/voxel.js"></script>
+<script src="js/world.js"></script>
+<script src="js/plane.js"></script>
+<script src="js/people.js"></script>
+<script src="js/input.js"></script>
+<script src="js/player.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
