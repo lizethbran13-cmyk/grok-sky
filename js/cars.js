@@ -18,7 +18,7 @@ const TYPES = {
 };
 const SEDAN_COLS = [0x1976d2, 0xeeeeee, 0x212121, 0x9e9e9e, 0xff7043, 0x5e35b1, 0x00897b, 0xc62828, 0xf9a825];
 const POLICE_VMAX = [0, 22, 26, 30]; // by wanted level: a compact can outrun 1 star, the sports car outruns all
-const C = SKY.Cars = { list: [], cur: null, wanted: 0, evadeT: 0, bustT: 0, breakIn: null, busted: null, spawned: {}, policeCD: 0, rammedCD: 0, sirenLvl: 0, TYPES, stats: { busted: 0, escaped: 0, stolen: 0, rented: 0 } };
+const C = SKY.Cars = { list: [], extra: [], netCD: {}, cur: null, wanted: 0, evadeT: 0, bustT: 0, breakIn: null, busted: null, spawned: {}, policeCD: 0, rammedCD: 0, sirenLvl: 0, TYPES, stats: { busted: 0, escaped: 0, stolen: 0, rented: 0 } };
 let uid = 1;
 // ------------------------------------------------------------------ airport landside layout (u = metres landward of the apron edge)
 const AX = (apt, u) => apt.XF + apt.side * u;
@@ -103,13 +103,15 @@ C.render = (cam) => {
   if (!SKY.Game || !SKY.Game.scene) return; writers();
   wBody.begin(); wLight.begin(); const t = SKY.Game.time;
   const far = SKY.lowSpec ? 330 : 520;
-  for (const car of C.list) { if (car.gone) continue; const d = (car.pos.x - cam.x) ** 2 + (car.pos.z - cam.z) ** 2; if (d > far * far && car !== C.cur) continue; drawCar(car, t); }
+  for (const car of C.list) { if (car.gone || car.netHidden) continue; const d = (car.pos.x - cam.x) ** 2 + (car.pos.z - cam.z) ** 2; if (d > far * far && car !== C.cur) continue; drawCar(car, t); }
+  for (const car of C.extra) { const d = (car.pos.x - cam.x) ** 2 + (car.pos.z - cam.z) ** 2; if (d < far * far * 4) drawCar(car, t); } // 3.6: partners' cars
   wBody.end(); wLight.end();
 };
 // ------------------------------------------------------------------ car objects
 function makeCar(type, x, z, yaw, o) {
   const T = TYPES[type]; o = o || {};
   const car = Object.assign({ id: uid++, type, T, pos: new THREE.Vector3(x, W.heightAt(x, z), z), yaw, speed: 0, steer: 0, kind: 'parked', col: o.col != null ? o.col : T.col, city: null, stuckT: 0, revT: 0, braking: false, siren: false, path: null, s: 0, dir: 1 }, o);
+  if (o.key && C.list.some((c) => c.key === o.key)) { car.gone = true; return car; } // 3.6: a partner already parked this one here
   C.list.push(car); return car;
 }
 C.make = makeCar;
@@ -123,6 +125,7 @@ const _a = {};
 // ------------------------------------------------------------------ per-city ambient cars
 function spawnCity(c) {
   const r = SKY.rng(c.seed + 991); const low = SKY.lowSpec; const tag = { city: c };
+  let kn = 0; const K = () => c.id + ':' + (kn++); // 3.6 online: stable ids so partners agree on which parked car is which
   const apt = c.apt;
   if (apt) {
     const z0 = Lz(apt);
@@ -132,14 +135,14 @@ function spawnCity(c) {
       const row = Math.floor(r() * Math.floor((apt.L - 10) / 16)), col = Math.floor(r() * 16); const key = row * 100 + col; if (used.has(key)) continue;
       const u = 72.5 + col * 5; if (u > 150) continue; const z = apt.az - apt.L / 2 + 8 + row * 16 + 2.5;
       const x = AX(apt, u); if (W.solidAt(x, 1, z) || W.solidAt(x, 1, z + 2) || W.solidAt(x, 1, z - 2)) continue;
-      used.add(key); makeCar('sedan', x, z, r() < 0.5 ? 0 : Math.PI, { kind: 'parked', col: SEDAN_COLS[Math.floor(r() * SEDAN_COLS.length)], city: c, taxi: c.id === 'NYC' && r() < 0.4 });
+      used.add(key); makeCar('sedan', x, z, r() < 0.5 ? 0 : Math.PI, { kind: 'parked', col: SEDAN_COLS[Math.floor(r() * SEDAN_COLS.length)], city: c, taxi: c.id === 'NYC' && r() < 0.4, key: K() });
     }
     // rental fleet on display (one of each) + the airport police cruiser
-    ['compact', 'sports', 'suv'].forEach((t, i) => makeCar(t, AX(apt, 112 + i * 6 + 3), z0 + 58, Math.PI, { kind: 'parked', fleet: true, city: c }));
+    ['compact', 'sports', 'suv'].forEach((t, i) => makeCar(t, AX(apt, 112 + i * 6 + 3), z0 + 58, Math.PI, { kind: 'parked', fleet: true, city: c, key: K() }));
     makeCar('police', AX(apt, 64), z0 + 37, Math.PI, { kind: 'decor', city: c });
     // cars slowly cruising the landside loop (curb road ↔ service road)
     const loop = polyLen([[AX(apt, 50), apt.az - apt.L / 2 - 40], [AX(apt, 50), z0 + 12], [AX(apt, 162), z0 + 12], [AX(apt, 162), apt.az - apt.L / 2 - 40], [AX(apt, 50), apt.az - apt.L / 2 - 40]]);
-    for (let k = 0; k < (low ? 1 : 2); k++) { const car = makeCar('sedan', 0, 0, 0, { kind: 'npc', col: SEDAN_COLS[(k * 3 + 2) % SEDAN_COLS.length], city: c, path: loop, s: loop.L * (k / 2 + 0.1), dir: 1, loop: true, lane: 2.2, v: 7, taxi: c.id === 'NYC' }); placeOnPath(car); }
+    for (let k = 0; k < (low ? 1 : 2); k++) { const car = makeCar('sedan', 0, 0, 0, { kind: 'npc', col: SEDAN_COLS[(k * 3 + 2) % SEDAN_COLS.length], city: c, path: loop, s: loop.L * (k / 2 + 0.1), dir: 1, loop: true, lane: 2.2, v: 7, taxi: c.id === 'NYC', key: K() }); placeOnPath(car); }
   }
   // city streets: a few parked cars + slow cruisers on traffic roads near the centre
   const roads = (c.plan.roads || []).filter((rd) => rd.traffic && rd.pts && rd.pts.length > 1).map((rd) => Object.assign(polyLen(rd.pts), { w: rd.w || 12 })).filter((rd) => rd.L > 160);
@@ -149,9 +152,9 @@ function spawnCity(c) {
     for (let i = 0; i < (low ? 3 : 6); i++) {
       const rd = near[i % near.length]; const s = r() * rd.L; along(rd, s, _a); const side = r() < 0.5 ? 1 : -1; const off = rd.w * 0.42 * side;
       const x = _a.x - _a.dz * off, z = _a.z + _a.dx * off; if (W.solidAt(x, 1, z) || W.isWater(x, z)) continue;
-      makeCar('sedan', x, z, Math.atan2(_a.dx * side, _a.dz * side), { kind: 'parked', col: SEDAN_COLS[Math.floor(r() * SEDAN_COLS.length)], city: c, taxi: c.id === 'NYC' && r() < 0.5 });
+      makeCar('sedan', x, z, Math.atan2(_a.dx * side, _a.dz * side), { kind: 'parked', col: SEDAN_COLS[Math.floor(r() * SEDAN_COLS.length)], city: c, taxi: c.id === 'NYC' && r() < 0.5, key: c.id + ':s' + i });
     }
-    for (let k = 0; k < (low ? 1 : 2) && k < near.length; k++) { const rd = near[k]; const car = makeCar('sedan', 0, 0, 0, { kind: 'npc', col: SEDAN_COLS[(k * 5 + 1) % SEDAN_COLS.length], city: c, path: rd, s: rd.L * 0.3, dir: 1, loop: false, lane: rd.w * 0.22, v: 8, taxi: c.id === 'NYC' }); placeOnPath(car); }
+    for (let k = 0; k < (low ? 1 : 2) && k < near.length; k++) { const rd = near[k]; const car = makeCar('sedan', 0, 0, 0, { kind: 'npc', col: SEDAN_COLS[(k * 5 + 1) % SEDAN_COLS.length], city: c, path: rd, s: rd.L * 0.3, dir: 1, loop: false, lane: rd.w * 0.22, v: 8, taxi: c.id === 'NYC', key: c.id + ':n' + k }); placeOnPath(car); }
   }
   C.spawned[c.id] = true;
 }
@@ -195,11 +198,11 @@ function physics(car, dt, thr, steer, hand) {
   return hit;
 }
 function carCollisions(dt) {
-  const L = C.list; const P = SKY.Player;
+  const L = C.list.filter((c) => !c.netHidden).concat(C.extra); const P = SKY.Player; // 3.6: partners' cars push you (they're static here)
   for (let i = 0; i < L.length; i++) for (let j = i + 1; j < L.length; j++) {
     const a = L[i], b = L[j]; const dx = b.pos.x - a.pos.x, dz = b.pos.z - a.pos.z; const R = (a.T.L + b.T.L) * 0.32; const d2 = dx * dx + dz * dz; if (d2 > R * R || d2 < 1e-6) continue;
     const d = Math.sqrt(d2), pen = R - d, nx = dx / d, nz = dz / d;
-    const aStatic = a.kind === 'parked' || a.kind === 'decor', bStatic = b.kind === 'parked' || b.kind === 'decor';
+    const aStatic = a.kind === 'parked' || a.kind === 'decor' || a.kind === 'remote', bStatic = b.kind === 'parked' || b.kind === 'decor' || b.kind === 'remote';
     const wa = aStatic && !bStatic ? 0 : bStatic && !aStatic ? 1 : 0.5;
     if (!(aStatic && bStatic)) { a.pos.x -= nx * pen * wa; a.pos.z -= nz * pen * wa; b.pos.x += nx * pen * (1 - wa); b.pos.z += nz * pen * (1 - wa); }
     const rel = Math.abs(a.speed - b.speed);
@@ -208,10 +211,10 @@ function carCollisions(dt) {
       if (other.kind === 'police' && rel > 8 && C.rammedCD <= 0 && C.wanted > 0 && C.wanted < 3) { C.rammedCD = 8; C.setWanted(C.wanted + 1, '🚓 You bumped a police cruiser!'); }
       if (rel > 6) { SKY.Audio.play('crunch', Math.min(1, rel / 20)); SKY.Game.shake(Math.min(0.5, rel / 40)); }
     }
-    if (rel > 1) { a.speed *= 0.7; b.speed *= 0.7; }
+    if (rel > 1) { if (a.kind !== 'remote') a.speed *= 0.7; if (b.kind !== 'remote') b.speed *= 0.7; }
   }
   // cars vs the walking player: gentle cartoon shove (no damage)
-  if (P.frame === 'world' && P.mode === 'foot') for (const car of L) {
+  if (P.frame === 'world' && P.mode === 'foot') for (const car of L) { if (car.kind === 'remote' && Math.abs(car.speed) > 2) continue;
     const dx = P.pos.x - car.pos.x, dz = P.pos.z - car.pos.z; const d = hyp(dx, dz); if (d > car.T.L * 0.55 || Math.abs(P.pos.y - car.pos.y) > 2.5) continue;
     if (Math.abs(car.speed) > 2) { P.vel.x += dx / (d || 1) * 4; P.vel.z += dz / (d || 1) * 4; P.vel.y = Math.max(P.vel.y, 2); car.speed *= 0.3; if (car.kind === 'npc') SKY.toast('🚗 *HONK* "Watch it, pal!"'); SKY.Audio.play('horn'); }
     else { P.pos.x = car.pos.x + dx / (d || 1) * car.T.L * 0.55; P.pos.z = car.pos.z + dz / (d || 1) * car.T.L * 0.55; }
@@ -232,34 +235,39 @@ function npcStep(car, dt) {
   else { if (car.s > car.path.L - 6) { car.s = car.path.L - 6; car.dir = -1; } if (car.s < 6) { car.s = 6; car.dir = 1; } }
   const oy = car.yaw; placeOnPath(car); let dy = wrap(car.yaw - oy); car.yaw = oy + clamp(dy, -2.5 * dt, 2.5 * dt);
 }
+// who is this cruiser after? the local player, or (3.6 online, host only) a partner by player id
+function localTarget() { const P = SKY.Player; return { pos: C.cur ? C.cur.pos : P.pos, inCar: !!C.cur, speed: C.cur ? C.cur.speed : 0, yaw: C.cur ? C.cur.yaw : -P.yaw, wanted: C.wanted, hidden: false, local: true }; }
+function targetOf(car) { if (!car.tgt) return localTarget(); return SKY.Net ? SKY.Net.target(car.tgt) : null; }
 function policeStep(car, dt) {
-  const P = SKY.Player; const tgt = C.cur ? C.cur.pos : P.pos; const tv = C.cur ? C.cur.speed : 0;
-  car.vmax = POLICE_VMAX[Math.max(1, C.wanted)] || 24; car.siren = C.wanted > 0;
-  if (C.wanted <= 0) { // give up: drive away and vanish
+  const T = targetOf(car); const wanted = T ? T.wanted : 0;
+  car.vmax = POLICE_VMAX[Math.max(1, wanted)] || 24; car.siren = wanted > 0;
+  if (wanted <= 0) { // give up: drive away and vanish
     car.leaveT = (car.leaveT || 0) + dt; physics(car, dt, 0.6, 0.2, false); if (car.leaveT > 6) removeCar(car); return;
   }
+  car.leaveT = 0;
+  const tgt = T.pos, tv = T.speed;
   const dx = tgt.x - car.pos.x, dz = tgt.z - car.pos.z, d = hyp(dx, dz);
   let ax = tgt.x, az = tgt.z;
-  if (C.cur && d < 30 && tv > 4) { const f = fwd(C.cur); ax += f.x * Math.min(10, tv * 0.6); az += f.z * Math.min(10, tv * 0.6); } // cut in front to block
+  if (T.inCar && d < 30 && tv > 4) { const f = { x: Math.sin(T.yaw), z: Math.cos(T.yaw) }; ax += f.x * Math.min(10, tv * 0.6); az += f.z * Math.min(10, tv * 0.6); } // cut in front to block
   const want = Math.atan2(ax - car.pos.x, az - car.pos.z); const err = wrap(want - car.yaw);
   let thr = 1, steer = clamp(-err * 2.2, -1, 1);
-  if (!C.cur && d < 14) thr = car.speed > 7 ? -0.6 : 0.4;         // on foot: don't flatten anyone, just stop next to them
-  else if (C.cur && d < 9 && Math.abs(tv) < 4) thr = car.speed > 3 ? -1 : 0.2;
+  if (!T.inCar && d < 14) thr = car.speed > 7 ? -0.6 : 0.4;         // on foot: don't flatten anyone, just stop next to them
+  else if (T.inCar && d < 9 && Math.abs(tv) < 4) thr = car.speed > 3 ? -1 : 0.2;
   if (Math.abs(err) > 1.9 && d < 25) { thr = -0.7; steer = -steer; } // target behind: back up & swing round
   // stuck → reverse briefly
   if (car.revT > 0) { car.revT -= dt; thr = -1; steer = car.revSteer; }
   else if (Math.abs(car.speed) < 1 && thr > 0.3 && d > 10) { car.stuckT += dt; if (car.stuckT > 1.2) { car.stuckT = 0; car.revT = 1.1; car.revSteer = Math.random() < 0.5 ? 1 : -1; } } else car.stuckT = 0;
   physics(car, dt, thr, steer, false);
 }
-function spawnPolice() {
-  const P = SKY.Player; const ref = C.cur ? C.cur.pos : P.pos; const back = C.cur ? C.cur.yaw + Math.PI : -P.yaw;
+function spawnPolice(T) {
+  T = T || localTarget(); const ref = T.pos; const back = T.inCar ? T.yaw + Math.PI : T.yaw; // (on foot, localTarget's yaw is already -P.yaw = facing back)
   for (let k = 0; k < 16; k++) {
     const ang = back + (k === 0 ? 0 : rand(-1.6, 1.6)), dist = k < 10 ? rand(85, 115) : rand(60, 85); // inside the 120 m 'lost them' radius
     const x = ref.x + Math.sin(ang) * dist, z = ref.z + Math.cos(ang) * dist; const y = W.heightAt(x, z);
     if (W.isWater(x, z) || y > 30) continue;
     let ok = true; for (const o of [[0, 0], [2.5, 0], [-2.5, 0], [0, 2.5], [0, -2.5]]) if (W.solidAt(x + o[0], y + 0.8, z + o[1]) || W.solidAt(x + o[0], y + 1.6, z + o[1])) { ok = false; break; }
     if (!ok) continue;
-    const car = makeCar('police', x, z, Math.atan2(ref.x - x, ref.z - z), { kind: 'police', siren: true }); car.speed = 8; return car;
+    const car = makeCar('police', x, z, Math.atan2(ref.x - x, ref.z - z), { kind: 'police', siren: true, tgt: T.pid || undefined }); car.speed = 8; return car;
   }
   return null;
 }
@@ -341,6 +349,7 @@ C.targets = () => {
   const P = SKY.Player, out = [];
   if (P.frame !== 'world' || P.mode !== 'foot' || C.breakIn || (SKY.Places && SKY.Places.cur)) return out;
   for (const car of C.list) {
+    if (car.netHidden) continue;
     const d = hyp(car.pos.x - P.pos.x, car.pos.z - P.pos.z); if (d > 5.5 || Math.abs(car.pos.y - P.pos.y) > 3) continue;
     const pos = new THREE.Vector3(car.pos.x, car.pos.y + 1.2, car.pos.z);
     if (car.owner === 'player') out.push({ pos, r: 5.5, label: () => '🚗 Drive your ' + car.T.name, act: () => C.enter(car) });
@@ -383,22 +392,29 @@ C.update = (dt) => {
   // spawn / despawn ambient cars with their city
   for (const c of W.cities) { if (c.complete && !C.spawned[c.id]) spawnCity(c); else if (!c.built && C.spawned[c.id]) despawnCity(c); }
   const ref = C.cur ? C.cur.pos : P.pos;
+  const NET = SKY.Net, client = !!(NET && NET.isClient()), host = !!(NET && NET.isHost());
   for (const car of C.list.slice()) {
-    if (car === C.cur) continue;
+    if (car === C.cur || car.netHidden) continue;
     if (car.kind === 'npc') { if (hyp(car.pos.x - G.camPos.x, car.pos.z - G.camPos.z) < 900) npcStep(car, dt); }
-    else if (car.kind === 'police') policeStep(car, dt);
+    else if (car.kind === 'police') { if (!car.net) policeStep(car, dt); } // 3.6: on clients the host drives the police
     else if (Math.abs(car.speed) > 0.05) physics(car, dt, 0, 0, true); // abandoned car coasting to a stop
   }
   carCollisions(dt);
   // ---- wanted level / police / evade / busted
-  const cops = C.police();
+  const allCops = C.police(), cops = NET ? allCops.filter((c) => NET.mine(c)) : allCops; // only the cruisers chasing ME count for my wanted level
+  if (host) for (const T of NET.wantedTargets()) { // 3.6 host: police for wanted partners too
+    const theirs = allCops.filter((c) => c.tgt === T.pid);
+    for (const cp of theirs) if (hyp(cp.pos.x - T.pos.x, cp.pos.z - T.pos.z) > 400 || cp.pos.y > 60) removeCar(cp);
+    C.netCD[T.pid] = (C.netCD[T.pid] || 0) - dt;
+    if (theirs.length < T.wanted && T.needCops && !T.hidden && C.netCD[T.pid] <= 0) { C.netCD[T.pid] = 3; spawnPolice(T); }
+  }
   if (C.wanted > 0 && !C.busted) {
     let minD = 1e9; for (const cp of cops) minD = Math.min(minD, hyp(cp.pos.x - ref.x, cp.pos.z - ref.z));
     const hidden = (SKY.Places && SKY.Places.cur) || P.frame !== 'world';
     if (cops.length) C.copsSeen = true;
     if (hidden || (minD > 120 && C.copsSeen)) C.evadeT += dt; // the clock only runs once the police have actually shown up (or you're hiding) else if (minD < 75) C.evadeT = Math.max(0, C.evadeT - dt * 1.5);
-    for (const cp of cops) if (hyp(cp.pos.x - ref.x, cp.pos.z - ref.z) > 400 || cp.pos.y > 60) removeCar(cp);
-    if (C.police().length < C.wanted && C.evadeT <= 0.5 && C.policeCD <= 0 && !hidden) { C.policeCD = 3; spawnPolice(); }
+    if (!client) for (const cp of cops) if (hyp(cp.pos.x - ref.x, cp.pos.z - ref.z) > 400 || cp.pos.y > 60) removeCar(cp);
+    if (!client && (NET ? C.police().filter((c) => NET.mine(c)).length : C.police().length) < C.wanted && C.evadeT <= 0.5 && C.policeCD <= 0 && !hidden) { C.policeCD = 3; spawnPolice(); }
     if (C.evadeT >= 10) C.clearWanted('escaped');
     // busted: a cruiser right next to you while you're (nearly) stopped, or on foot
     const close = !hidden && cops.some((cp) => hyp(cp.pos.x - ref.x, cp.pos.z - ref.z) < (C.cur ? 7.5 : 5.5));
@@ -407,7 +423,7 @@ C.update = (dt) => {
     if (C.bustT >= (C.cur ? 1.6 : 1.3)) bust();
   } else { C.bustT = 0; C.evadeT = 0; }
   // siren loudness = nearest chasing cruiser
-  let sl = 0; if (C.wanted > 0) for (const cp of cops) sl = Math.max(sl, clamp(1 - hyp(cp.pos.x - G.camPos.x, cp.pos.z - G.camPos.z) / 260, 0, 1));
+  let sl = 0; for (const cp of allCops) if (cp.siren && (C.wanted > 0 || cp.tgt)) sl = Math.max(sl, clamp(1 - hyp(cp.pos.x - G.camPos.x, cp.pos.z - G.camPos.z) / 260, 0, 1)); // 3.6: hear your partner's chase too
   C.sirenLvl = sl;
   // busted screen
   if (C.busted) { const B = C.busted; B.t += dt; const jail = !!SKY.Jail; // 3.5.1: arrest (cuffs sparkle) -> GROK JAIL cell at the police office
@@ -425,14 +441,14 @@ function respawnAtPolice(B) {
   const P = SKY.Player; const car = C.cur; const ref = car ? car.pos : P.pos;
   const apt = SKY.Airport.nearest(ref.x, ref.z, 1e9) || SKY.Airport.list[0]; B.apt = apt;
   if (car) { C.cur = null; if (car.stolen || car.kind === 'rental') removeCar(car); }
-  for (const cp of C.police()) removeCar(cp);
+  for (const cp of C.police()) if (!cp.net && !cp.tgt) removeCar(cp); // 3.6: partners' chases carry on
   C.wanted = 0; C.evadeT = 0; C.bustT = 0; C.breakIn = null;
   W.ensureCity(apt.c);
   if (SKY.Places && SKY.Places.cur) SKY.Places.clearCur();
   const pp = C.policePos(apt); P.mode = 'foot'; P.frame = 'world'; P.chute = false; P.pos.set(pp.x, W.heightAt(pp.x, pp.z) + 0.05, pp.z); P.vel.set(0, 0, 0); P.yaw = 0; P.pitch = 0; P.grounded = true; SKY.Game.camInit = false;
   if (!SKY.Jail) SKY.toast('🚔 Busted! Released from the ' + apt.code + ' airport police office' + (B.fine ? ' after paying a ' + B.fine + '-coin fine' : '') + '. Drive nice!', 'warn');
 }
-C.reset = () => { if (SKY.Jail) SKY.Jail.reset(); for (const car of C.list.slice()) if (car.kind === 'police' || car.owner === 'player') removeCar(car); C.cur = null; C.wanted = 0; C.evadeT = 0; C.bustT = 0; C.breakIn = null; C.busted = null; const el = document.getElementById('busted'); if (el) el.classList.remove('show'); };
+C.reset = () => { if (SKY.Jail) SKY.Jail.reset(); for (const car of C.list.slice()) if ((car.kind === 'police' && !car.net && !car.tgt) || car.owner === 'player') removeCar(car); C.cur = null; C.wanted = 0; C.evadeT = 0; C.bustT = 0; C.breakIn = null; C.busted = null; const el = document.getElementById('busted'); if (el) el.classList.remove('show'); };
 // chase camera (called from Game.updateCamera)
 C.camera = (cam, dt, O) => {
   const car = C.cur, G = SKY.Game; if (O.t > 0) O.t -= dt; else { O.yaw *= 1 - 2 * dt; O.pitch *= 1 - 2 * dt; }

@@ -16,7 +16,8 @@ const ACH = {
   joyride: ['🔓', 'Joyride', 'Steal a car (cartoon crime!)'], busted: ['🚔', 'Busted!', 'Get caught by the police'], getaway: ['😎', 'Getaway Driver', 'Lose the police'],
   patient: ['🩺', 'First Patient', 'Treat a patient at an airport clinic'], doctor: ['👩‍⚕️', 'Doctor of the Skies', 'Treat 10 patients'],
   taxigate: ['🚕', 'Follow Me', 'Park at a gate with TAXI TO GATE (3.5.1)'], jailbird: ['🔒', 'Jailbird', 'Get thrown in GROK JAIL'],
-  greatescape: ['🥄', 'The Great Escape', 'Dig out of GROK JAIL with a spoon'], modelinmate: ['😇', 'Model Inmate', 'Wait out your GROK JAIL time']
+  greatescape: ['🥄', 'The Great Escape', 'Dig out of GROK JAIL with a spoon'], modelinmate: ['😇', 'Model Inmate', 'Wait out your GROK JAIL time'],
+  together: ['🌐', 'Better Together', 'Play online with a friend'], formation: ['🛩', 'Formation Flight', 'Fly within 300 m of your online partner']
 };
 const G = SKY.Game = {
   state: 'title', settings: { invert: false, muted: false }, ach: {}, stats: null, camPos: new THREE.Vector3(), camOrbit: { yaw: 0, pitch: 0, t: 0 }, shakeAmt: 0, testMode: false,
@@ -40,6 +41,7 @@ const G = SKY.Game = {
     const ce = $('carexit'); if (ce) ce.addEventListener('click', (e) => { e.stopPropagation(); if (SKY.Cars && SKY.Cars.cur) SKY.Cars.exit(); });
     addEventListener('resize', () => this.resize()); this.resize();
     this.buildUI();
+    if (SKY.Net) SKY.Net.init(); // 3.6 online multiplayer (lobby, ?mp= URL params)
     if (SKY.isTouch) document.body.classList.add('touchdev');
     // idle title scene: plane parked at LA
     this.plane.reset({ city: SKY.World.city('LA'), mode: 'cruise' }); SKY.Crowd.populate(0, true);
@@ -53,7 +55,7 @@ const G = SKY.Game = {
         while (acc >= SKY.DT && n < (low ? 3 : 4)) { this.update(SKY.DT); if (n === 0) I.clearEdges(); acc -= SKY.DT; n++; }
         if (n >= (low ? 3 : 4)) acc = 0;
       }
-      this.render(dt);
+      if (this.noRender) { if (SKY.Net) SKY.Net.frame(dt); } else this.render(dt); // noRender: headless multi-device tests (sim + net only)
     };
     requestAnimationFrame(frame);
   },
@@ -75,6 +77,7 @@ const G = SKY.Game = {
     SKY.Player.reset(this.startMode);
     if (this.startMode !== 'pilot') { pl.ap.on = true; pl.ap.by = 'pilots'; pl.ap.alt = 1900; pl.ap.mode = 'cruise'; pl.ap.dest = this.nextCity(city); }
     else { pl.ap.dest = this.nextCity(city); }
+    if (SKY.Net) SKY.Net.onStart(city, this.startMode); // 3.6: room meta + spread partners' planes out
     this.stats = { injuries: 0, hits: 0, ko: 0, time: 0, cities: new Set([city.id]), ejected: 0, spoiled: 0, start: city.name, seen: new Set() };
     this.wasAirborne = this.startMode !== 'pilot'; this.overT = -1; this.crashShown = false; this.bashes = 0; this.pilotsDownT = 0; this.apDisc = -1;
     this.camOrbit.yaw = 0; this.camOrbit.pitch = 0; this.camInit = false;
@@ -335,6 +338,7 @@ const G = SKY.Game = {
       if (SKY.Places) SKY.Places.labels(this.camera, (pos, txt) => SKY.Labels.add(pos, this.camera, this.W, this.H, null, txt, '#222'));
     }
     SKY.Labels.end();
+    if (SKY.Net) SKY.Net.frame(dt); // 3.6: partners' planes / avatars / cars / name tags (before the cars are drawn)
     if (SKY.Cars && (this.state === 'play' || this.state === 'over' || this.state === 'paused')) SKY.Cars.render(this.camPos);
     this.renderer.render(this.scene, this.camera);
     this.hudT -= dt; if (this.hudT <= 0 && this.state !== 'title') { this.hudT = 0.1; this.updateHUD(); }
@@ -459,6 +463,7 @@ const G = SKY.Game = {
       if (SKY.Places) for (const q of SKY.Places.byCity[local.id] || []) { const d = Math.hypot(q.dx - ref.x, q.dz - ref.z); if (d > range * 1.5) continue; x.save(); x.translate((q.dx - ref.x) * sc, (q.dz - ref.z) * sc); x.rotate(hdg); x.fillStyle = 'rgba(0,0,0,.55)'; x.beginPath(); x.arc(0, 0, 8, 0, 6.29); x.fill(); x.strokeStyle = '#ffd23d'; x.lineWidth = 1.5; x.stroke(); x.font = '10px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(q.icon, 0, 1); x.restore(); }
     }
     for (const c of W.cities) { const cx = (c.x - ref.x) * sc, cz = (c.z - ref.z) * sc; x.fillStyle = c.id === 'A51' ? '#7dff7d' : '#ffeb3b'; x.beginPath(); x.arc(cx, cz, 4, 0, 6.29); x.fill(); x.save(); x.translate(cx, cz); x.rotate(hdg); x.fillStyle = '#fff'; x.font = 'bold 10px sans-serif'; x.fillText(c.id, 5, -4); x.restore(); }
+    if (SKY.Net) SKY.Net.drawMini(x, ref, sc, hdg, S); // 3.6: partners (clamped to the rim when far away)
     x.restore();
     x.fillStyle = '#ff6a1a'; x.beginPath(); x.moveTo(S / 2, S / 2 - 7); x.lineTo(S / 2 - 5, S / 2 + 6); x.lineTo(S / 2 + 5, S / 2 + 6); x.fill();
     x.strokeStyle = 'rgba(255,255,255,0.8)'; x.lineWidth = 2; x.beginPath(); x.arc(S / 2, S / 2, S / 2 - 1, 0, 6.29); x.stroke();
@@ -470,7 +475,7 @@ const G = SKY.Game = {
   // -------------------------------------------------------------- UI screens
   hideScreens() { for (const id of ['title', 'pause', 'over', 'mapScreen']) $(id).classList.remove('show'); },
   uiOpen() { return !!this.ui || this.state !== 'play'; },
-  lockPointer() { const c = this.renderer.domElement; if (c.requestPointerLock && !SKY.isTouch) { try { c.requestPointerLock(); } catch (e) { } } },
+  lockPointer() { const c = this.renderer.domElement; if (c.requestPointerLock && !SKY.isTouch) { try { const r = c.requestPointerLock(); if (r && r.catch) r.catch(() => { }); } catch (e) { } } }, // (promise form rejects without a user gesture, e.g. an online auto-start)
   unlockPointer() { if (document.pointerLockElement) { this.ignoreUnlock = true; document.exitPointerLock(); } },
   pause(fromUnlock) { if (this.state !== 'play') return; this.state = 'paused'; $('pause').classList.add('show'); this.renderAch(); if (!fromUnlock) this.unlockPointer(); SKY.Audio.setAlarm(false); },
   resume() { this.state = 'play'; this.hideScreens(); if (!SKY.isTouch) this.lockPointer(); },
@@ -492,6 +497,7 @@ const G = SKY.Game = {
     for (const c of W.cities) { const px = (c.x - mb.x0) * sx, pz = (c.z - mb.z0) * sz; x.fillStyle = c.id === 'A51' ? '#7dff7d' : '#ffeb3b'; x.beginPath(); x.arc(px, pz, 6, 0, 6.29); x.fill(); x.strokeStyle = '#000'; x.stroke(); x.fillStyle = '#fff'; x.font = 'bold 14px sans-serif'; x.strokeStyle = '#000'; x.lineWidth = 3; x.strokeText(c.name, px + 8, pz - 6); x.fillText(c.name, px + 8, pz - 6); x.lineWidth = 1; }
     for (const c of W.cities) if (c.apt) { const px = (c.apt.XF - mb.x0) * sx, pz = (c.apt.az - mb.z0) * sz; x.fillStyle = '#fff'; x.fillRect(px - 3, pz - 3, 6, 6); x.font = 'bold 11px sans-serif'; x.lineWidth = 3; x.strokeStyle = '#000'; x.strokeText('✈ ' + c.apt.code, px + 5, pz + 12); x.fillStyle = '#ffeb3b'; x.fillText('✈ ' + c.apt.code, px + 5, pz + 12); x.lineWidth = 1; }
     this.renderPlaces();
+    if (SKY.Net) SKY.Net.drawBigMap(x, mb, sx, sz);
     const P = SKY.Player, ref = P.frame === 'world' ? P.pos : this.plane.pos; x.fillStyle = '#ff6a1a'; x.beginPath(); x.arc((ref.x - mb.x0) * sx, (ref.z - mb.z0) * sz, 7, 0, 6.29); x.fill(); x.strokeStyle = '#fff'; x.lineWidth = 2; x.stroke(); x.lineWidth = 1;
   },
   // Places list per city in the map: tap to fast-travel to the entrance (plane gets parked at that city's gate)

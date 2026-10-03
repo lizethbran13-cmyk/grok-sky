@@ -20,6 +20,8 @@
     <div id="h-obj"></div>
   </div>
   <div id="compass">N 000°</div>
+  <div id="mpbadge"></div>
+  <div id="mptags"></div>
   <div id="instr">
     <div class="row"><label>ALT</label><span id="i-alt">0 ft</span></div>
     <div class="row"><label>SPD</label><span id="i-spd">0 kts</span></div>
@@ -108,6 +110,7 @@
       <button class="mode" data-mode="cabin">💺 <b>Passenger</b><span>Cruising, pilots fly</span></button>
     </div>
     <button id="play" class="go">▶ PLAY</button>
+    <button id="t-online" class="small online">🌐 Online <small>2–3 players</small></button>
     <button id="t-help" class="small">Controls</button>
     <p class="fine">Cartoon physics · no gore: injuries are ragdoll flops &amp; health bars.</p>
   </div>
@@ -119,6 +122,7 @@
     <div class="grid2">
       <button id="p-resume" class="go">▶ Resume</button>
       <button id="p-map">🗺 Flight map / fast travel</button>
+      <button id="p-online">🌐 Online multiplayer</button>
       <button id="p-pax">➕ Add passenger</button>
       <button id="p-crew">➕ Add crew</button>
       <button id="p-invert">Invert pitch: OFF</button>
@@ -181,6 +185,25 @@
   <div id="pp-body"></div>
 </div>
 
+<div id="mp" class="panel">
+  <div class="mphead"><h2>🌐 Online multiplayer</h2><button id="mp-x" aria-label="close">✕</button></div>
+  <div id="mp-setup">
+    <p class="fine">Fly, drive &amp; explore together — 2 players (up to 3), each on their own phone or computer.</p>
+    <div class="mpline"><label for="mp-name">Your name</label><input id="mp-name" maxlength="12" autocomplete="off" spellcheck="false"></div>
+    <div class="mpline"><label>Colour</label><div id="mp-colors"></div></div>
+    <div class="mpline"><label>Players</label><div id="mp-n"><button data-n="2">2</button><button data-n="3">3</button></div></div>
+    <button id="mp-host" class="go">🏠 HOST A ROOM</button>
+    <div class="mpor">— or join a friend —</div>
+    <div class="mpline join"><input id="mp-code" maxlength="5" placeholder="CODE" autocomplete="off" autocapitalize="characters" spellcheck="false"><button id="mp-join" class="go alt">🔗 JOIN</button></div>
+  </div>
+  <div id="mp-room">
+    <div class="mpcode"><small>ROOM CODE</small><b id="mp-codebig">-----</b><span id="mp-codehint"></span></div>
+    <div id="mp-list"></div>
+    <div class="mpbtns"><button id="mp-play" class="go">▶ PLAY</button><button id="mp-goto">📍 Fly to partner</button><button id="mp-leave">🚪 Leave room</button></div>
+  </div>
+  <div id="mp-status"></div>
+</div>
+
 <div id="ptrans"><div id="ptrans-t">…</div></div>
 <div id="scopeov"><div class="ring"></div><div class="tip">🔭 look around · USE / JUMP to step back</div></div>
 
@@ -227,6 +250,9 @@
 <script src="js/cars.js"></script>
 <script src="js/clinic.js"></script>
 <script src="js/player.js"></script>
+<script src="peerjs.min.js"></script>
+<script src="js/grok-net.js"></script>
+<script src="js/net.js"></script>
 <script src="js/game.js"></script>
 </body>
 </html>

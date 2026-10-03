@@ -29,7 +29,7 @@ J.enter = (apt) => {
   G.achieve('jailbird');
 };
 J.release = (how) => {
-  const c = J.cur; if (!c) return; J.cur = null; const G = SKY.Game, C = SKY.Cars;
+  const c = J.cur; if (!c) return; J.cur = null; const G = SKY.Game, C = SKY.Cars; J.lastHow = how;
   $('jail').classList.remove('show'); if (G.ui === 'jail') G.ui = null;
   if (SKY.holdToasts) { if (SKY.toastHold) SKY.toastHold = SKY.toastHold.filter(t => t[1] === 'ach'); SKY.holdToasts(false); } // replay achievements only
   if (how === 'bail') SKY.toast('💰 Bail paid (' + BAIL + ' 🪙). You\'re free to go — drive nice!', 'good');
