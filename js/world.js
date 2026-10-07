@@ -14,11 +14,19 @@ const CITIES = [
   { id: 'NYC', name: 'New York', x: 41000, z: -6000, biome: 0x5f9a4c, urban: 0x9c9fa3, seed: 55 },
   { id: 'PAR', name: 'Paris', x: 64000, z: -13000, biome: 0x6ea84a, urban: 0xb5ad9d, seed: 66 },
   { id: 'TYO', name: 'Tokyo', x: -36000, z: -4000, biome: 0x5c9a50, urban: 0xa7a8a8, seed: 77 },
+  { id: 'LON', name: 'London', x: 54000, z: -31000, biome: 0x5f9a4c, urban: 0xa09c94, seed: 88 },
+  { id: 'SBX', name: 'Starbase', x: 24000, z: 10000, biome: 0xc9b98a, urban: 0xbdb39a, seed: 99 },
+  { id: 'UIO', name: 'Quito', x: 27000, z: 31500, biome: 0x6f9a50, urban: 0xb8ae9c, seed: 111 },
+  { id: 'RIO', name: 'Rio de Janeiro', x: 45500, z: 38500, biome: 0x5a9a48, urban: 0xb5ad9d, seed: 122 },
+  { id: 'MOON', name: 'Moon Base Artemis', x: 130000, z: -22000, biome: 0x9a9a9a, urban: 0xa9a9a9, seed: 133, space: 'moon', grav: 0.165 },
+  { id: 'MARS', name: 'Mars Base Alpha', x: 130000, z: 22000, biome: 0xb0602f, urban: 0xb5653a, seed: 144, space: 'mars', grav: 0.38 },
 ];
 for (const c of CITIES) { c.ax = c.x + 3200; c.az = c.z; c.rwyLen = 2400; c.rwyW = 50; c.built = false; c.complete = false; c.structs = []; }
 const LAND = [
   { x: 8000, z: 2000, rx: 10500, rz: 22000 }, { x: 25000, z: -5000, rx: 20500, rz: 17000 },
   { x: 64000, z: -12000, rx: 13000, rz: 12000 }, { x: -36000, z: -4000, rx: 7500, rz: 15000 },
+  { x: 54000, z: -32000, rx: 6000, rz: 9000 }, { x: 24500, z: 10800, rx: 7000, rz: 2600 }, { x: 34000, z: 36000, rx: 14000, rz: 12000 }, // 4.0: Britain, Boca Chica, South America
+  { x: 130000, z: -22000, rx: 19000, rz: 19000 }, { x: 130000, z: 22000, rx: 19000, rz: 19000 }, // the Moon + Mars (far off the map)
 ];
 const W = SKY.World = { cities: CITIES, structs: [], debris: [], hills: [], interactables: [], waterPatches: [], landPatches: [], rivers: [], waterCircles: [], landmarks: [] };
 W.isLand = (x, z) => { for (const b of LAND) { const dx = (x - b.x) / b.rx, dz = (z - b.z) / b.rz; if (dx * dx + dz * dz < 1) return true; } return false; };
@@ -42,6 +50,9 @@ W.heightAt = (x, z) => {
 };
 W.nearestCity = (x, z) => { let best = null, bd = 1e18; for (const c of CITIES) { const d = (c.x - x) ** 2 + (c.z - z) ** 2; if (d < bd) { bd = d; best = c; } } return { city: best, dist: Math.sqrt(bd) }; };
 W.city = (id) => CITIES.find((c) => c.id === id);
+W.LAND = LAND;
+W.routeOrder = ['LA', 'LAS', 'MEX', 'SBX', 'UIO', 'RIO', 'NYC', 'LON', 'PAR', 'TYO'];
+W.spaceAt = (x, z) => (x > 100000 ? (z < 0 ? W.city('MOON') : W.city('MARS')) : null);
 // distance to a zone = min(city centre, airport)
 W.zoneDist = (c, x, z) => { let d = Math.hypot(c.x - x, c.z - z); if (c.apt) d = Math.min(d, Math.hypot(c.ax - x, c.az - z) - c.rwyLen * 0.5); return Math.max(0, d); };
 
@@ -396,7 +407,7 @@ function fillDistricts(P) {
   const take = (x0, z0, x1, z1) => { for (let i = Math.floor(x0 / TK); i <= Math.floor(x1 / TK); i++) for (let k = Math.floor(z0 / TK); k <= Math.floor(z1 / TK); k++) { const key = i * 7919 + k; let a = taken.get(key); if (!a) taken.set(key, a = []); a.push([x0, z0, x1, z1]); } };
   const r = P.r;
   // phone budget: dense real-world cities are thinned so each city stays around ~300k voxels
-  const DENS = { LA: 0.85, LAS: 1, MEX: 0.72, NYC: 0.55, PAR: 0.42, TYO: 0.5 };
+  const DENS = { LA: 0.85, LAS: 1, MEX: 0.72, NYC: 0.55, PAR: 0.42, TYO: 0.5, LON: 0.5, RIO: 0.6, UIO: 0.6, SBX: 1 };
   const dm = DENS[c.id] || 1;
   for (const d of P.districts) {
     const s = d.s || 4, lot = d.lot || 40, fill = (d.fill || 0.8) * dm * (P.low ? (d.lowFill || 0.62) : 1);
@@ -634,13 +645,20 @@ W.build = function (scene) {
   }
   curCity = null;
   // --- ground mesh (vertex coloured) ---
-  const X0 = -50000, X1 = 82000, Z0 = -40000, Z1 = 40000, SX = low ? 88 : 132, SZ = low ? 54 : 80;
+  const X0 = -50000, X1 = 82000, Z0 = -46000, Z1 = 52000, SX = low ? 88 : 132, SZ = low ? 66 : 98;
   const geo = new THREE.PlaneGeometry(X1 - X0, Z1 - Z0, SX, SZ); geo.rotateX(-Math.PI / 2); geo.translate((X0 + X1) / 2, 0, (Z0 + Z1) / 2);
   const pos = geo.attributes.position, cols = new Float32Array(pos.count * 3), col = new THREE.Color();
   for (let i = 0; i < pos.count; i++) { const x = pos.getX(i), z = pos.getZ(i); W.groundColor(x, z, col); cols[i * 3] = col.r; cols[i * 3 + 1] = col.g; cols[i * 3 + 2] = col.b; }
   geo.setAttribute('color', new THREE.BufferAttribute(cols, 3));
   const ground = new THREE.Mesh(geo, new THREE.MeshLambertMaterial({ vertexColors: true }));
   scene.add(ground); W.ground = ground;
+  // 4.0: Moon + Mars terrain (own ground meshes far east of the Earth map)
+  for (const c of CITIES) if (c.space) {
+    const R = 19000, N = low ? 48 : 80; const g2 = new THREE.PlaneGeometry(R * 2, R * 2, N, N); g2.rotateX(-Math.PI / 2); g2.translate(c.x, 0, c.z);
+    const p2 = g2.attributes.position, c2 = new Float32Array(p2.count * 3), base = new THREE.Color(c.biome);
+    for (let i = 0; i < p2.count; i++) { const x = p2.getX(i), z = p2.getZ(i); col.copy(base); col.offsetHSL(0, 0, (Math.sin(x * 0.0031 + z * 0.0017) + Math.cos(z * 0.0041 - x * 0.0023) + Math.sin(x * 0.011) * 0.5) * 0.035); c2[i * 3] = col.r; c2[i * 3 + 1] = col.g; c2[i * 3 + 2] = col.b; }
+    g2.setAttribute('color', new THREE.BufferAttribute(c2, 3)); const m2 = new THREE.Mesh(g2, new THREE.MeshLambertMaterial({ vertexColors: true })); scene.add(m2); c.terrain = m2;
+  }
   // --- far impostors + local maps ---
   for (const c of CITIES) { c.impostor = buildImpostor(c.plan); if (c.impostor) scene.add(c.impostor); buildCityMap(c.plan); }
   // --- hills ---
@@ -650,8 +668,8 @@ W.build = function (scene) {
     if (h.cap) { const cpg = new THREE.ConeGeometry(h.r * 0.3, h.h * 0.3, 12, 1).toNonIndexed(); cpg.computeVertexNormals(); const cp = new THREE.Mesh(cpg, new THREE.MeshLambertMaterial({ color: 0xffffff })); cp.position.set(h.x, h.h * 0.85 + 2, h.z); cp.scale.setScalar(1.02); scene.add(cp); }
   }
   // clouds
-  const cl = []; const r = rng(99);
-  for (let q = 0; q < (low ? 70 : 160); q++) { const cx = -45000 + r() * 125000, cz = -35000 + r() * 70000, cy = 900 + r() * 900; for (let b = 0; b < 4; b++) cl.push([cx + (r() - 0.5) * 300, cz + (r() - 0.5) * 200, cy + (r() - 0.5) * 60, 120 + r() * 200]); }
+  const cl = []; const r = rng(99); // (clouds only over the Earth map)
+  for (let q = 0; q < (low ? 80 : 180); q++) { const cx = -45000 + r() * 125000, cz = -41000 + r() * 88000, cy = 900 + r() * 900; for (let b = 0; b < 4; b++) cl.push([cx + (r() - 0.5) * 300, cz + (r() - 0.5) * 200, cy + (r() - 0.5) * 60, 120 + r() * 200]); }
   const cim = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial({ color: 0xffffff, transparent: true, opacity: 0.85, depthWrite: false }), cl.length);
   const m4 = new THREE.Matrix4(); cl.forEach((c, i) => { m4.makeScale(c[3], c[3] * 0.25, c[3] * 0.7); m4.setPosition(c[0], c[2], c[1]); cim.setMatrixAt(i, m4); }); cim.frustumCulled = false; scene.add(cim); W.clouds = cl;
   W.buildMapCanvas();
@@ -659,6 +677,7 @@ W.build = function (scene) {
   W.buildCity(W.city('LA'), true);
 };
 W.groundColor = (x, z, out) => {
+  if (x > 100000) { out.setHex(z < 0 ? 0x9a9a9a : 0xb0602f); return out; }
   if (!W.isLand(x, z)) { out.setHex(0x2f74b5); const n = Math.sin(x * 0.0013) * Math.cos(z * 0.0011) * 0.05; out.offsetHSL(0, 0, n); return out; }
   const { city } = W.nearestCity(x, z); out.setHex(city.biome);
   const n = (Math.sin(x * 0.0021 + z * 0.0013) + Math.cos(z * 0.0027 - x * 0.0009)) * 0.04; out.offsetHSL(0, 0, n);
@@ -667,10 +686,10 @@ W.groundColor = (x, z, out) => {
   return out;
 };
 W.buildMapCanvas = () => {
-  const cv = document.createElement('canvas'); cv.width = 528; cv.height = 320; const x = cv.getContext('2d');
+  const cv = document.createElement('canvas'); cv.width = 528; cv.height = 392; const x = cv.getContext('2d');
   const col = new THREE.Color();
-  for (let py = 0; py < 160; py++) for (let px = 0; px < 264; px++) { const wx = -50000 + px * 500, wz = -40000 + py * 500; W.groundColor(wx, wz, col); if (W.isWater(wx, wz)) col.setHex(0x2f74b5); x.fillStyle = '#' + col.getHexString(); x.fillRect(px * 2, py * 2, 2, 2); }
-  W.mapCanvas = cv; W.mapBounds = { x0: -50000, z0: -40000, w: 132000, h: 80000 };
+  for (let py = 0; py < 196; py++) for (let px = 0; px < 264; px++) { const wx = -50000 + px * 500, wz = -46000 + py * 500; W.groundColor(wx, wz, col); if (W.isWater(wx, wz)) col.setHex(0x2f74b5); x.fillStyle = '#' + col.getHexString(); x.fillRect(px * 2, py * 2, 2, 2); }
+  W.mapCanvas = cv; W.mapBounds = { x0: -50000, z0: -46000, w: 132000, h: 98000 };
 };
 
 // ---------- queries ----------

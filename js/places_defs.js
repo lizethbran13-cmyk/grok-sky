@@ -79,6 +79,7 @@ function booth(pl, c, sign) {
 function deckSign(pl, c, sign) { SKY.signBoard(pl.dx + pl.f[0] * 0.3, pl.dy + 4.2, pl.dz + pl.f[1] * 0.3, [{ t: sign, m: 34 }], 0.5, 70, 34, pl.face); }
 
 // observation deck builder (deck coords: origin = centre - R, y=0 is the deck floor)
+PL.deckBuild = (ctx, pl, o) => deckBuild(ctx, pl, o);
 function deckBuild(ctx, pl, o) {
   const R = ctx.W / 2, fl = pl.deck.floor;
   for (let x = 0; x < ctx.W; x += 0.5) for (let z = 0; z < ctx.D; z += 0.5) {

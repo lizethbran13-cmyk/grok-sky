@@ -14,6 +14,7 @@ const TYPES = {
   sports: { name: 'Sky Racer', icon: '🏎', desc: 'Sports car · fastest', W: 2.0, h1: 0.55, h2: 0.48, L: 4.4, vmax: 36, acc: 12, steer: 2.1, col: 0xe53935, price: 25, stars: 4, spoiler: true },
   suv: { name: 'Desert Cruiser', icon: '🚐', desc: 'SUV · big & tough', W: 2.2, h1: 0.95, h2: 0.8, L: 4.7, vmax: 29, acc: 9, steer: 1.9, col: 0x2e7d32, price: 16, stars: 3 },
   sedan: { name: 'sedan', icon: '🚗', W: 1.9, h1: 0.7, h2: 0.6, L: 4.3, vmax: 26, acc: 8, steer: 2.0, col: 0x1976d2 },
+  rover: { name: 'Space Rover', icon: '🛞', desc: 'Pressurised rover · bouncy', W: 2.6, h1: 0.6, h2: 0.7, L: 4.2, vmax: 14, acc: 5, steer: 1.8, col: 0xe8e8e8 },
   police: { name: 'police cruiser', icon: '🚓', W: 2.0, h1: 0.72, h2: 0.6, L: 4.6, vmax: 26, acc: 10, steer: 2.3, col: 0xf4f6fa, police: true },
 };
 const SEDAN_COLS = [0x1976d2, 0xeeeeee, 0x212121, 0x9e9e9e, 0xff7043, 0x5e35b1, 0x00897b, 0xc62828, 0xf9a825];
@@ -144,6 +145,7 @@ function spawnCity(c) {
     const loop = polyLen([[AX(apt, 50), apt.az - apt.L / 2 - 40], [AX(apt, 50), z0 + 12], [AX(apt, 162), z0 + 12], [AX(apt, 162), apt.az - apt.L / 2 - 40], [AX(apt, 50), apt.az - apt.L / 2 - 40]]);
     for (let k = 0; k < (low ? 1 : 2); k++) { const car = makeCar('sedan', 0, 0, 0, { kind: 'npc', col: SEDAN_COLS[(k * 3 + 2) % SEDAN_COLS.length], city: c, path: loop, s: loop.L * (k / 2 + 0.1), dir: 1, loop: true, lane: 2.2, v: 7, taxi: c.id === 'NYC', key: K() }); placeOnPath(car); }
   }
+  if (c.space) { for (let i = 0; i < 3; i++) makeCar('rover', c.x + 40 + i * 9, c.z + 40, Math.PI * 0.5, { kind: 'parked', free: true, col: i === 1 ? 0xff9800 : 0xe8e8e8, city: c }); C.spawned[c.id] = true; return; } // 4.0: free rovers at the Moon / Mars bases
   // city streets: a few parked cars + slow cruisers on traffic roads near the centre
   const roads = (c.plan.roads || []).filter((rd) => rd.traffic && rd.pts && rd.pts.length > 1).map((rd) => Object.assign(polyLen(rd.pts), { w: rd.w || 12 })).filter((rd) => rd.L > 160);
   roads.sort((a, b) => dCenter(a, c) - dCenter(b, c));
@@ -352,7 +354,7 @@ C.targets = () => {
     if (car.netHidden) continue;
     const d = hyp(car.pos.x - P.pos.x, car.pos.z - P.pos.z); if (d > 5.5 || Math.abs(car.pos.y - P.pos.y) > 3) continue;
     const pos = new THREE.Vector3(car.pos.x, car.pos.y + 1.2, car.pos.z);
-    if (car.owner === 'player') out.push({ pos, r: 5.5, label: () => '🚗 Drive your ' + car.T.name, act: () => C.enter(car) });
+    if (car.owner === 'player' || car.free) out.push({ pos, r: 5.5, label: () => (car.free ? '🛞 Drive the ' : '🚗 Drive your ') + car.T.name, act: () => C.enter(car) });
     else if (car.kind === 'parked' || car.kind === 'npc') out.push({ pos, r: 5.5, label: () => '🔓 STEAL this ' + (car.fleet ? car.T.name : car.T.name) + ' (wanted ★)', act: () => C.startSteal(car) });
   }
   // rental counters

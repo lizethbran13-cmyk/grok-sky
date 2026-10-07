@@ -153,7 +153,7 @@ const P = SKY.Player = {
     for (const h of [0.03, 0.42, 0.85, 1.25, 1.66]) for (const sx of [-hw, hw]) for (const sz of [-hw, hw]) if (this.solid(pos.x + sx, pos.y + h, pos.z + sz)) return true;
     return false;
   },
-  gravity() { return this.frame === 'plane' ? this.plane.gLocal : _v3.set(0, -SKY.GRAV, 0); },
+  gravity() { return this.frame === 'plane' ? this.plane.gLocal : _v3.set(0, -SKY.GRAV * (this.pos.x > 100000 && SKY.Starship ? SKY.Starship.gravScale(this.pos.x, this.pos.z) : 1), 0); },
   // ------------------------------------------------------------ update
   update(dt, I) {
     const pl = this.plane, G = SKY.Game;
@@ -163,16 +163,17 @@ const P = SKY.Player = {
     // look
     const sens = SKY.isTouch ? 0.0045 : 0.0023;
     if (this.mode === 'drive') { G.camOrbit.yaw -= I.look.dx * sens; G.camOrbit.pitch = clamp(G.camOrbit.pitch - I.look.dy * sens, -0.5, 0.7); if (I.look.dx || I.look.dy) G.camOrbit.t = 2.5; }
-    else if (this.mode === 'pilot' && this.pilotCam === 'chase') { G.camOrbit.yaw -= I.look.dx * sens; G.camOrbit.pitch = clamp(G.camOrbit.pitch - I.look.dy * sens, -0.9, 0.7); if (I.look.dx || I.look.dy) G.camOrbit.t = 2.5; }
+    else if ((this.mode === 'pilot' || (this.mode === 'seat' && this.rideCam)) && this.pilotCam === 'chase') { G.camOrbit.yaw -= I.look.dx * sens; G.camOrbit.pitch = clamp(G.camOrbit.pitch - I.look.dy * sens, -0.9, 0.7); if (I.look.dx || I.look.dy) G.camOrbit.t = 2.5; }
     else { this.yaw -= I.look.dx * sens; this.pitch = clamp(this.pitch - I.look.dy * sens, -1.5, 1.5); }
     I.look.dx = 0; I.look.dy = 0;
+    if (this.mode === 'ride') { this.target = null; this.computeView(); for (let i = 0; i < 3; i++) this.vmTools[i].visible = false; this.vmHeld.visible = false; return; } // 4.0: riding Starship
     // 3.5: driving a car (look = orbit the chase camera, handled in updateCamera)
     if (this.mode === 'drive') { SKY.Cars.drive(dt, I); this.target = null; this.computeView(); this.vitals(dt); for (let i = 0; i < 3; i++) this.vmTools[i].visible = false; this.vmHeld.visible = false; return; }
     if (this.woozy > 0) { this.yaw += Math.sin(performance.now() * 0.002) * 0.004; }
     // tools
     if (I.edge('tool1')) this.setTool(0); if (I.edge('tool2')) this.setTool(1); if (I.edge('tool3')) this.setTool(2);
     if (I.edge('toolNext')) this.setTool((this.tool + 1) % 3);
-    if (I.edge('cam')) { if (this.mode === 'pilot') { this.pilotCam = this.pilotCam === 'chase' ? 'cockpit' : 'chase'; this.yaw = 0; this.pitch = -0.05; } else this.camMode = this.camMode === 'fp' ? 'tp' : 'fp'; }
+    if (I.edge('cam')) { if (this.mode === 'pilot' || (this.mode === 'seat' && this.rideCam)) { this.pilotCam = this.pilotCam === 'chase' ? 'cockpit' : 'chase'; this.yaw = 0; this.pitch = -0.05; } else this.camMode = this.camMode === 'fp' ? 'tp' : 'fp'; }
     // mode logic
     if (this.mode === 'pilot') this.updatePilot(dt, I);
     else if (this.mode === 'seat') { if (I.edge('jump')) this.standUp(); this.seatedChecks(dt); }

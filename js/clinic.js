@@ -17,7 +17,7 @@ const AIL = {
 const TOOLS = { bandage: ['🩹', 'Bandage'], ice: ['🧊', 'Ice pack'], thermo: ['🌡️', 'Thermometer'], medicine: ['💊', 'Medicine'], splint: ['🩼', 'Splint'], lotion: ['🧴', 'Lotion'] };
 const SPOT_XY = { head: [0.5, 0.11], mouth: [0.5, 0.22], arm: [0.25, 0.47], hand: [0.8, 0.6], ankle: [0.6, 0.93] };
 const NAMES = ['Mrs. Pepper', 'Mr. Noodle', 'Captain Waffles', 'Granny Rose', 'Dr. Who-Me', 'Little Timmy', 'Ms. Biscuit', 'Señor Taco', 'Madame Brie', 'Ken-chan', 'Big Lou', 'Aunt Zelda', 'Professor Plum', 'Sunny', 'Mx. Pickles'];
-const FLIGHTS = ['Las Vegas', 'Paris', 'Tokyo', 'New York', 'Mexico City', 'Los Angeles', 'Area 51 (shh)'];
+const FLIGHTS = ['Las Vegas', 'Paris', 'Tokyo', 'New York', 'Mexico City', 'Los Angeles', 'Area 51 (shh)', 'London', 'Rio', 'Quito', 'Mars (via Starbase)'];
 const SKIN = [0xf1c27d, 0xe0ac69, 0xc68642, 0x8d5524, 0xffdbac];
 const CL = SKY.Clinic = { cur: null, treated: () => PL.save.treated || 0, AIL, TOOLS };
 
@@ -34,7 +34,7 @@ function clinicDef(cid) {
     build(ctx, pl) { buildClinic(ctx, pl); },
   };
 }
-for (const cid of ['LA', 'LAS', 'A51', 'MEX', 'NYC', 'PAR', 'TYO']) { (PL.DEFS[cid] = PL.DEFS[cid] || []).push(clinicDef(cid)); }
+for (const cid of ['LA', 'LAS', 'A51', 'MEX', 'NYC', 'PAR', 'TYO', 'LON', 'SBX', 'UIO', 'RIO']) { (PL.DEFS[cid] = PL.DEFS[cid] || []).push(clinicDef(cid)); }
 PL.isClinic = (pl) => !!(pl && pl.clinic);
 
 function buildClinic(ctx, pl) {

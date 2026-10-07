@@ -6,7 +6,7 @@ const { clamp } = SKY;
 const W = SKY.World, WB = SKY.WB;
 const GW = 55, TD = 40;
 const WHITE = 0xf2f2f2, YEL = 0xffd23d;
-const LIVERY = { LAX: [67, 68], LAS: [63, 67], XTA: [67, 29], MEX: [64, 67], JFK: [68, 60], CDG: [60, 67], HND: [67, 29] };
+const LIVERY = { LAX: [67, 68], LAS: [63, 67], XTA: [67, 29], MEX: [64, 67], JFK: [68, 60], CDG: [60, 67], HND: [67, 29], LHR: [68, 67], SDU: [64, 63], UIO: [63, 60], BRO: [70, 29] };
 const A = SKY.Airport = { dock: null, taxi: null, dep: null, landedAt: null, list: [] };
 const hyp = Math.hypot, wrap = (a) => { while (a > Math.PI) a -= Math.PI * 2; while (a < -Math.PI) a += Math.PI * 2; return a; };
 

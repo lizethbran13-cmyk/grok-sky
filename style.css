@@ -387,3 +387,11 @@ body.touchdev #mpbadge { font-size: 10px; padding: 1px 7px 1px 5px; }
 .pstat i { display: block; height: 100%; background: linear-gradient(90deg, #ffd23d, #ff6a1a); }
 .warnline { background: rgba(255,120,40,.2); border-radius: 8px; padding: 6px 8px; }
 @media (max-width: 520px) { #mapplanes { grid-template-columns: repeat(3, 1fr); } .pchip small { display: none; } }
+/* 4.0 Starship ride overlay */
+#ssov { display: none; position: fixed; left: 50%; top: 12%; transform: translateX(-50%); z-index: 40; text-align: center; pointer-events: none; color: #fff; text-shadow: 0 2px 6px #000, 0 0 2px #000; }
+#ss-big { font: 900 44px/1.1 system-ui, sans-serif; letter-spacing: 1px; }
+#ss-sub { font: 700 16px/1.3 system-ui, sans-serif; margin-top: 6px; opacity: .95; }
+#ss-skip { pointer-events: auto; margin-top: 12px; padding: 10px 18px; border-radius: 12px; border: 2px solid #fff; background: rgba(20, 30, 60, .75); color: #fff; font: 800 16px system-ui, sans-serif; }
+body.ssride #touch, body.ssride #prompt, body.ssride #hint { display: none !important; }
+@media (max-width: 600px) { #ss-big { font-size: 32px; } #ss-sub { font-size: 14px; } }
+#mp-joinbtn { position: fixed; left: 50%; bottom: 112px; transform: translateX(-50%); z-index: 45; padding: 10px 16px; border-radius: 14px; border: 2px solid #fff; background: rgba(30, 120, 70, .9); color: #fff; font: 800 15px system-ui, sans-serif; display: none; max-width: 92vw; }

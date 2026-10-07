@@ -7,11 +7,12 @@ const $ = (id) => document.getElementById(id);
 const ACH = {
   takeoff: ['🛫', 'Wheels Up', 'Take off'], land: ['🛬', 'Greaser', 'Land on a runway'], chef: ['⭐', 'Top Chef', 'Cook a PERFECT meal'], spoiled: ['🤢', 'Food Poisoning (Cartoon)', 'Serve a spoiled meal'],
   code: ['🔑', 'Detective', 'Find the cockpit code'], breach: ['🚪', 'Door Buster', 'Get into the cockpit'], door: ['🌬', 'Fresh Air', 'Open a door mid-flight'], masks: ['😷', 'Breathe Normally', 'Wear a mask during decompression'],
-  saucer: ['👽', 'They\'re Real', 'Wake the Area 51 saucer'], gate: ['🅿', 'On Blocks', 'Dock at an airport gate'], terminal: ['🏢', 'Frequent Flyer', 'Walk into an airport terminal'], pushback: ['🚜', 'Pushback', 'Push back from a gate'], tourist: ['📸', 'Tourist', 'Visit 5 famous landmarks'], firefighter: ['🧯', 'Firefighter', 'Put out a fire'], crash: ['💥', 'Insurance Claim', 'Crash the plane'], globe: ['🌍', 'Globetrotter', 'Visit all 6 cities'],
+  saucer: ['👽', 'They\'re Real', 'Wake the Area 51 saucer'], gate: ['🅿', 'On Blocks', 'Dock at an airport gate'], terminal: ['🏢', 'Frequent Flyer', 'Walk into an airport terminal'], pushback: ['🚜', 'Pushback', 'Push back from a gate'], tourist: ['📸', 'Tourist', 'Visit 5 famous landmarks'], firefighter: ['🧯', 'Firefighter', 'Put out a fire'], crash: ['💥', 'Insurance Claim', 'Crash the plane'], globe: ['🌍', 'Globetrotter', 'Visit all 10 cities'],
   enter: ['🚪', 'Come On In', 'Walk into a place in a city'], explorer: ['🧭', 'City Explorer', 'Enter a place in all 7 zones'], jackpot: ['🎰', 'JACKPOT!', 'Hit 7-7-7 on a slot machine'],
   arcade: ['👾', 'Arcade Legend', 'Score 500+ on GROK INVADERS'], foodie: ['🌮', 'Foodie', 'Eat in 3 different cities'], souvenir: ['🎁', 'Souvenir Hunter', 'Buy a souvenir'],
   deck: ['🏙', 'Top of the World', 'Ride an elevator to an observation deck'], monalisa: ['😉', 'She Winked', 'Gaze at the Mona Lisa'], xfiles: ['👽', 'The Truth Is In There', 'Get into the Area 51 lab'],
   summit: ['🔺', 'Summit', 'Climb the Pyramid of the Sun'],
+  starship: ['🚀', 'Liftoff!', 'Ride Starship'], catch: ['🥢', 'Chopsticks', 'See Mechazilla catch the booster'], moonwalk: ['🌕', 'Moonwalker', 'Walk on the Moon'], martian: ['🔴', 'Martian', 'Walk on Mars'], copilot: ['🤝', 'Co-Pilot', 'Fly in a friend\'s plane'],
   autoland: ['🤖', 'Hands Free', 'Complete an AUTO LAND'], sprinter: ['🏃', 'Sprinter', 'Run for 4 seconds'], rental: ['🔑', 'Road Trip', 'Rent a car at an airport'],
   joyride: ['🔓', 'Joyride', 'Steal a car (cartoon crime!)'], busted: ['🚔', 'Busted!', 'Get caught by the police'], getaway: ['😎', 'Getaway Driver', 'Lose the police'],
   patient: ['🩺', 'First Patient', 'Treat a patient at an airport clinic'], doctor: ['👩‍⚕️', 'Doctor of the Skies', 'Treat 10 patients'],
@@ -217,6 +218,7 @@ const G = SKY.Game = {
     if (SKY.Places) SKY.Places.update(dt, this.camPos);
     if (SKY.Ambient) SKY.Ambient.update(dt, this.camPos);
     if (Cars) Cars.update(dt);
+    if (SKY.Starship) SKY.Starship.update(dt); // 4.0 Starship rides
     this.fx.update(dt, new THREE.Vector3(0, -SKY.GRAV, 0), (x, y, z) => SKY.World.heightAt(x, z) + 0.05);
     this.events(dt);
     this.updateCamera(dt);
@@ -243,7 +245,7 @@ const G = SKY.Game = {
     const ref = P.frame === 'world' ? P.pos : pl.pos;
     const nc = W.nearestCity(ref.x, ref.z);
     if (nc.dist < 5000 && !this.stats.cities.has(nc.city.id)) { this.stats.cities.add(nc.city.id); SKY.toast('📍 Welcome to ' + nc.city.name + '!', 'good'); }
-    if (['LA', 'LAS', 'MEX', 'NYC', 'PAR', 'TYO'].every((c) => this.stats.cities.has(c))) this.achieve('globe');
+    if (['LA', 'LAS', 'MEX', 'NYC', 'PAR', 'TYO', 'LON', 'RIO', 'UIO', 'SBX'].every((c) => this.stats.cities.has(c))) this.achieve('globe');
     if (pl.decomp && P.masked) this.achieve('masks');
     // landmark sightseeing (on foot nearby, or flying low past it)
     this.lmT = (this.lmT || 0) - dt;
@@ -261,6 +263,7 @@ const G = SKY.Game = {
   updateCamera(dt) {
     const cam = this.camera, pl = this.plane, P = SKY.Player;
     const q = new THREE.Quaternion(), e = new THREE.Euler(0, 0, 0, 'YXZ');
+    if (!this.camOverride && SKY.Starship && SKY.Starship.camera(cam, dt)) { this.camPos.copy(cam.position); return; }
     if (this.camOverride) { const o = this.camOverride; cam.position.set(o[0], o[1], o[2]); cam.up.set(0, 1, 0); cam.lookAt(o[3], o[4], o[5]); this.camPos.copy(cam.position); return; } // test/photo hook
     if (P.mode === 'drive' && SKY.Cars && SKY.Cars.cur) { SKY.Cars.camera(cam, dt, this.camOrbit); }
     else if (P.dead && P.frame === 'world') { const t = this.time * 0.2; cam.position.set(P.pos.x + Math.cos(t) * 12, P.pos.y + 6, P.pos.z + Math.sin(t) * 12); cam.lookAt(P.pos); }
@@ -305,8 +308,9 @@ const G = SKY.Game = {
   shake(a) { this.shakeAmt = Math.min(1.5, Math.max(this.shakeAmt, a)); },
   flash(n) { const f = $('flash'); f.style.opacity = Math.min(0.6, n / 30 + 0.15); clearTimeout(this._fl); this._fl = setTimeout(() => { f.style.opacity = 0; }, 120); },
   renderPlayerBody(wp, ww) {
-    const P = SKY.Player; const showTP = P.camMode === 'tp' || (P.mode === 'pilot' && P.pilotCam === 'chase');
-    if (!showTP || P.dead || P.mode === 'drive') return;
+    const P = SKY.Player; const showTP = P.camMode === 'tp' || ((P.mode === 'pilot' || (P.mode === 'seat' && P.rideCam)) && P.pilotCam === 'chase');
+    if (SKY.Net && SKY.Net.renderRiders) SKY.Net.renderRiders(wp, ww); // 4.0: friends riding in the same plane
+    if (!showTP || P.dead || P.mode === 'drive' || P.mode === 'ride') return;
     const b = P.body; b.frame = P.frame; b.pos.copy(P.pos); b.yaw = P.yaw;
     b.state = P.mode === 'seat' || P.mode === 'pilot' ? 'sit' : (P.frame === 'world' && P.chute ? 'para' : (Math.hypot(P.vel.x, P.vel.z) > 0.5 ? 'walk' : 'idle'));
     b.masked = P.masked; b.woozy = P.woozy; b.carry = !!P.held; b.panic = 0;
@@ -376,7 +380,7 @@ const G = SKY.Game = {
     if (this.state === 'title') { this.titleCam(dt); }
     // sky tint with altitude
     const a = clamp(this.camPos.y / 2600, 0, 1);
-    this.scene.background.setRGB(0.62 - a * 0.25, 0.83 - a * 0.18, 1.0 - a * 0.05); this.scene.fog.color.copy(this.scene.background);
+    if (!(SKY.Starship && SKY.Starship.sky(this))) { this.scene.background.setRGB(0.62 - a * 0.25, 0.83 - a * 0.18, 1.0 - a * 0.05); this.scene.fog.color.copy(this.scene.background); }
     // labels
     SKY.Labels.begin();
     if (this.state === 'play' || this.state === 'over') {
@@ -394,7 +398,7 @@ const G = SKY.Game = {
     SKY.Labels.end();
     if (SKY.Net) SKY.Net.frame(dt); // 3.6: partners' planes / avatars / cars / name tags (before the cars are drawn)
     if (SKY.Cars && (this.state === 'play' || this.state === 'over' || this.state === 'paused')) SKY.Cars.render(this.camPos);
-    this.renderer.render(this.scene, this.camera);
+    if (!(SKY.Starship && SKY.Starship.render(this.renderer))) this.renderer.render(this.scene, this.camera);
     this.hudT -= dt; if (this.hudT <= 0 && this.state !== 'title') { this.hudT = 0.1; this.updateHUD(); }
   },
   // -------------------------------------------------------------- title scene
@@ -416,7 +420,7 @@ const G = SKY.Game = {
     const nc = SKY.World.nearestCity((P.frame === 'world' ? P.pos : pl.pos).x, (P.frame === 'world' ? P.pos : pl.pos).z);
     const apH = SKY.Airport && SKY.Airport.nearest((P.frame === 'world' ? P.pos : pl.pos).x, (P.frame === 'world' ? P.pos : pl.pos).z, 1500);
     $('h-city').textContent = (nc.dist < 6500 ? '📍 ' + nc.city.name + (apH ? ' · ✈ ' + apH.code : '') : '🌐 ' + (nc.dist / 1000).toFixed(1) + ' km from ' + nc.city.name);
-    const modeTxt = P.mode === 'drive' && SKY.Cars && SKY.Cars.cur ? '🚗 DRIVING ' + SKY.Cars.cur.T.name : P.frame === 'world' ? (P.chute ? '🪂 PARACHUTING' : P.grounded ? (P.running ? '🏃 RUNNING' : '🚶 ON FOOT (ground)') : '😱 FALLING') : P.mode === 'pilot' ? '🧑‍✈️ PILOT · ' + pl.T.short : P.mode === 'seat' ? '💺 SEATED · ' + pl.T.short : '🚶 ON FOOT (cabin)';
+    const modeTxt = P.mode === 'ride' && SKY.Starship ? SKY.Starship.hudMode() : P.mode === 'drive' && SKY.Cars && SKY.Cars.cur ? '🚗 DRIVING ' + SKY.Cars.cur.T.name : P.frame === 'world' ? (P.chute ? '🪂 PARACHUTING' : P.grounded ? (P.running ? '🏃 RUNNING' : '🚶 ON FOOT (ground)') : '😱 FALLING') : P.mode === 'pilot' ? '🧑‍✈️ PILOT · ' + pl.T.short : P.mode === 'seat' ? '💺 SEATED · ' + pl.T.short : '🚶 ON FOOT (cabin)';
     const PLh = SKY.Places, inside = PLh && PLh.cur;
     $('h-mode').textContent = inside ? (inside.kind === 'deck' ? '🏙 ' : '🏠 INSIDE: ') + inside.place.name + ' · 🪙 ' + PLh.coins() : modeTxt + (P.frame === 'world' && PLh ? ' · 🪙 ' + PLh.coins() : '');
     $('i-alt').textContent = Math.max(0, Math.round(ft / 10) * 10).toLocaleString() + ' ft';
@@ -516,7 +520,7 @@ const G = SKY.Game = {
       for (const l of W.landmarks) if (l.city === local && l.label !== false) { const d = Math.hypot(l.x - ref.x, l.z - ref.z); if (d > range * 1.5) continue; x.fillStyle = '#ff5ea8'; x.beginPath(); x.arc((l.x - ref.x) * sc, (l.z - ref.z) * sc, 2.5, 0, 6.29); x.fill(); if (range < 3000 && (l.label || range < 1200)) lbl(l.x, l.z, l.name, '#ffd6ec', '9px sans-serif'); }
       if (SKY.Places) for (const q of SKY.Places.byCity[local.id] || []) { const d = Math.hypot(q.dx - ref.x, q.dz - ref.z); if (d > range * 1.5) continue; x.save(); x.translate((q.dx - ref.x) * sc, (q.dz - ref.z) * sc); x.rotate(hdg); x.fillStyle = 'rgba(0,0,0,.55)'; x.beginPath(); x.arc(0, 0, 8, 0, 6.29); x.fill(); x.strokeStyle = '#ffd23d'; x.lineWidth = 1.5; x.stroke(); x.font = '10px sans-serif'; x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillText(q.icon, 0, 1); x.restore(); }
     }
-    for (const c of W.cities) { const cx = (c.x - ref.x) * sc, cz = (c.z - ref.z) * sc; x.fillStyle = c.id === 'A51' ? '#7dff7d' : '#ffeb3b'; x.beginPath(); x.arc(cx, cz, 4, 0, 6.29); x.fill(); x.save(); x.translate(cx, cz); x.rotate(hdg); x.fillStyle = '#fff'; x.font = 'bold 10px sans-serif'; x.fillText(c.id, 5, -4); x.restore(); }
+    for (const c of W.cities) { if (c.space) continue; const cx = (c.x - ref.x) * sc, cz = (c.z - ref.z) * sc; x.fillStyle = c.id === 'A51' ? '#7dff7d' : '#ffeb3b'; x.beginPath(); x.arc(cx, cz, 4, 0, 6.29); x.fill(); x.save(); x.translate(cx, cz); x.rotate(hdg); x.fillStyle = '#fff'; x.font = 'bold 10px sans-serif'; x.fillText(c.id, 5, -4); x.restore(); }
     if (SKY.Net) SKY.Net.drawMini(x, ref, sc, hdg, S); // 3.6: partners (clamped to the rim when far away)
     x.restore();
     x.fillStyle = '#ff6a1a'; x.beginPath(); x.moveTo(S / 2, S / 2 - 7); x.lineTo(S / 2 - 5, S / 2 + 6); x.lineTo(S / 2 + 5, S / 2 + 6); x.fill();
@@ -548,7 +552,7 @@ const G = SKY.Game = {
     const cv = $('bigmap'); const x = cv.getContext('2d'); const W = SKY.World; const mb = W.mapBounds;
     x.drawImage(W.mapCanvas, 0, 0, cv.width, cv.height);
     const sx = cv.width / mb.w, sz = cv.height / mb.h;
-    for (const c of W.cities) { const px = (c.x - mb.x0) * sx, pz = (c.z - mb.z0) * sz; x.fillStyle = c.id === 'A51' ? '#7dff7d' : '#ffeb3b'; x.beginPath(); x.arc(px, pz, 6, 0, 6.29); x.fill(); x.strokeStyle = '#000'; x.stroke(); x.fillStyle = '#fff'; x.font = 'bold 14px sans-serif'; x.strokeStyle = '#000'; x.lineWidth = 3; x.strokeText(c.name, px + 8, pz - 6); x.fillText(c.name, px + 8, pz - 6); x.lineWidth = 1; }
+    for (const c of W.cities) { if (c.space) continue; const px = (c.x - mb.x0) * sx, pz = (c.z - mb.z0) * sz; x.fillStyle = c.id === 'A51' ? '#7dff7d' : '#ffeb3b'; x.beginPath(); x.arc(px, pz, 6, 0, 6.29); x.fill(); x.strokeStyle = '#000'; x.stroke(); x.fillStyle = '#fff'; x.font = 'bold 14px sans-serif'; x.strokeStyle = '#000'; x.lineWidth = 3; x.strokeText(c.name, px + 8, pz - 6); x.fillText(c.name, px + 8, pz - 6); x.lineWidth = 1; }
     for (const c of W.cities) if (c.apt) { const px = (c.apt.XF - mb.x0) * sx, pz = (c.apt.az - mb.z0) * sz; x.fillStyle = '#fff'; x.fillRect(px - 3, pz - 3, 6, 6); x.font = 'bold 11px sans-serif'; x.lineWidth = 3; x.strokeStyle = '#000'; x.strokeText('✈ ' + c.apt.code, px + 5, pz + 12); x.fillStyle = '#ffeb3b'; x.fillText('✈ ' + c.apt.code, px + 5, pz + 12); x.lineWidth = 1; }
     this.renderPlaces(); this.renderPlanePick();
     if (SKY.Net) SKY.Net.drawBigMap(x, mb, sx, sz);
@@ -601,7 +605,7 @@ const G = SKY.Game = {
     try { this.ach = JSON.parse(localStorage.getItem('grokSkyAch') || '{}') || {}; } catch (e) { this.ach = {}; }
     // title city buttons
     const cb = $('cities');
-    for (const c of SKY.World.cities) { const b = document.createElement('button'); b.className = 'city' + (c.id === this.startCity ? ' sel' : ''); b.dataset.id = c.id; b.innerHTML = `<b>${c.id}</b><span>${c.name}${c.id === 'A51' ? ' 👽' : ''}</span>`; b.onclick = () => { this.startCity = c.id; cb.querySelectorAll('.city').forEach((x) => x.classList.toggle('sel', x === b)); SKY.Audio.init(); SKY.Audio.play('beep'); }; cb.appendChild(b); }
+    for (const c of SKY.World.cities) { if (c.space) continue; const b = document.createElement('button'); b.className = 'city' + (c.id === this.startCity ? ' sel' : ''); b.dataset.id = c.id; b.innerHTML = `<b>${c.id}</b><span>${c.name}${c.id === 'A51' ? ' 👽' : ''}</span>`; b.onclick = () => { this.startCity = c.id; cb.querySelectorAll('.city').forEach((x) => x.classList.toggle('sel', x === b)); SKY.Audio.init(); SKY.Audio.play('beep'); }; cb.appendChild(b); }
     document.querySelectorAll('.mode').forEach((b) => b.onclick = () => { this.startMode = b.dataset.mode; document.querySelectorAll('.mode').forEach((x) => x.classList.toggle('sel', x === b)); SKY.Audio.init(); SKY.Audio.play('beep'); });
     $('play').onclick = () => this.start();
     this.renderPlanePick();
@@ -626,7 +630,7 @@ const G = SKY.Game = {
     document.body.appendChild($('prompt')); // above the touch layer so phones can tap it
     $('prompt').addEventListener('pointerdown', (e) => { if (SKY.Player.target && !this.ui) { I.edges.interact = true; e.preventDefault(); e.stopPropagation(); } });
     const ml = $('maplist');
-    for (const c of SKY.World.cities) { const row = document.createElement('div'); row.className = 'mrow'; row.innerHTML = `<b>${c.name}${c.id === 'A51' ? ' 👽' : ''}</b><small>${c.apt ? c.apt.code + ' · ' + c.apt.name : ''}</small>`; const a = document.createElement('button'); a.textContent = '🛬 Approach'; a.onclick = () => this.fastTravel(c.id, 'approach'); const r = document.createElement('button'); r.textContent = '🛫 Runway'; r.onclick = () => this.fastTravel(c.id, 'runway'); const g = document.createElement('button'); g.textContent = '🅿 Gate'; g.onclick = () => this.fastTravel(c.id, 'gate'); row.appendChild(a); row.appendChild(r); row.appendChild(g); ml.appendChild(row); }
+    for (const c of SKY.World.cities) { if (c.space) continue; const row = document.createElement('div'); row.className = 'mrow'; row.innerHTML = `<b>${c.name}${c.id === 'A51' ? ' 👽' : ''}</b><small>${c.apt ? c.apt.code + ' · ' + c.apt.name : ''}</small>`; const a = document.createElement('button'); a.textContent = '🛬 Approach'; a.onclick = () => this.fastTravel(c.id, 'approach'); const r = document.createElement('button'); r.textContent = '🛫 Runway'; r.onclick = () => this.fastTravel(c.id, 'runway'); const g = document.createElement('button'); g.textContent = '🅿 Gate'; g.onclick = () => this.fastTravel(c.id, 'gate'); row.appendChild(a); row.appendChild(r); row.appendChild(g); ml.appendChild(row); }
     $('cook-go').onclick = () => this.startCooking();
     $('cook-x').onclick = () => this.closeUI();
     document.querySelectorAll('#keypad [data-k]').forEach((b) => b.onclick = () => this.keypadPress(b.dataset.k));
