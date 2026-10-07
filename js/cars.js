@@ -145,7 +145,7 @@ function spawnCity(c) {
     const loop = polyLen([[AX(apt, 50), apt.az - apt.L / 2 - 40], [AX(apt, 50), z0 + 12], [AX(apt, 162), z0 + 12], [AX(apt, 162), apt.az - apt.L / 2 - 40], [AX(apt, 50), apt.az - apt.L / 2 - 40]]);
     for (let k = 0; k < (low ? 1 : 2); k++) { const car = makeCar('sedan', 0, 0, 0, { kind: 'npc', col: SEDAN_COLS[(k * 3 + 2) % SEDAN_COLS.length], city: c, path: loop, s: loop.L * (k / 2 + 0.1), dir: 1, loop: true, lane: 2.2, v: 7, taxi: c.id === 'NYC', key: K() }); placeOnPath(car); }
   }
-  if (c.space) { for (let i = 0; i < 3; i++) makeCar('rover', c.x + 40 + i * 9, c.z + 40, Math.PI * 0.5, { kind: 'parked', free: true, col: i === 1 ? 0xff9800 : 0xe8e8e8, city: c }); C.spawned[c.id] = true; return; } // 4.0: free rovers at the Moon / Mars bases
+  if (c.space) { for (let i = 0; i < 3; i++) makeCar('rover', c.x + 40, c.z + 34 + i * 8, Math.PI * 0.5, { kind: 'parked', free: true, col: i === 1 ? 0xff9800 : 0xe8e8e8, city: c }); C.spawned[c.id] = true; return; } // 4.0: free rovers at the Moon / Mars bases
   // city streets: a few parked cars + slow cruisers on traffic roads near the centre
   const roads = (c.plan.roads || []).filter((rd) => rd.traffic && rd.pts && rd.pts.length > 1).map((rd) => Object.assign(polyLen(rd.pts), { w: rd.w || 12 })).filter((rd) => rd.L > 160);
   roads.sort((a, b) => dCenter(a, c) - dCenter(b, c));

@@ -1,8 +1,10 @@
-GROK SKY - a voxel airliner sandbox (v3.5.1)
+GROK SKY - a voxel airliner sandbox (v4.0)
 ==========================================
 
 GROK SKY is a fully destructible voxel airliner sandbox that runs in a web
-browser. You can fly it between six cartoon-sized cities (plus Area 51), each laid out like
+browser. You can fly six real-world planes (Cessna 172, Gulfstream G650, Boeing 737,
+Boeing 747, Airbus A320, Airbus A380) between ten cartoon-sized cities (plus Area 51),
+ride Starship from Starbase to a Moon base and a Mars base, and fly together with friends online, each laid out like
 the real one and each with a small working airport. You can also walk the
 cabin, cook in the galley, open a door at 25,000 ft, or try to get into the
 locked cockpit. Content is cartoony: injuries are ragdoll flops and health bars,
@@ -31,6 +33,12 @@ js/world.js    terrain, ocean, 7 zones, lazy per-city build/unload, city planner
                ground decals), destructible buildings, far LOD impostors, per-city minimaps
 js/cities.js   mini Los Angeles and mini Las Vegas (street layout + landmarks), shared builders
 js/cities2.js  Area 51, Mexico City, New York, Paris and Tokyo, plus the bridge builder
+js/cities3.js  4.0: London, Rio de Janeiro, Quito, Starbase (Mechazilla tower) and the Moon / Mars bases
+js/places3.js  4.0: the places of London, Rio, Quito, Starbase and the Moon / Mars habitats
+js/starship.js 4.0: Starship + Super Heavy models, the launch / hot staging / booster catch / space / landing
+               ride between Starbase, the Moon and Mars, low gravity and space skies
+js/net.js      online multiplayer (2-3 players): state sync, avatars and name tags, shared police,
+               4.0 fly together in one plane, join a friend in a place, ride Starship together
 js/airport.js  the 7 mini airports: runways/taxiways/apron markings, terminal with gates and jet bridges,
                tower, hangars, parked airliners, lights, windsock, docking, pushback, auto-taxi, routes
 js/ambient.js  cheap instanced life: cars on the streets, people walking, baggage carts and fuel trucks,
@@ -80,6 +88,29 @@ Piloting     THR throttle slider, plus GEAR, FLAP, AP, BRK and rudder ◀ ▶ bu
 
 THINGS TO DO
 ------------
+NEW IN 4.0
+* SIX REAL PLANES: pick a Cessna 172 (propeller, lands almost anywhere), Gulfstream G650 business jet,
+  Boeing 737, Airbus A320 (fly-by-wire protections), Boeing 747 Jumbo or Airbus A380 Superjumbo from the
+  title screen or the map. Each has its own model, handling, takeoff/landing speeds, runway length and engine
+  sound. Phone controls are the same for all of them. You can swap planes while parked on the ground.
+* FLY TOGETHER: online, walk up to a friend's plane (or tap the 🤝 Board button / "Ride in ...'s plane" in
+  the online panel) to ride in THEIR plane: you sit in the co-pilot seat (or the cabin), can stand up and
+  walk the cabin, and both of you see the same flight. Leave once it has landed and stopped (or walk out the
+  door). If the pilot leaves mid-air, you get the controls with the autopilot holding. Or take your own plane.
+* SAME PLACE, SAME ROOM: when a friend is inside a place (pub, café, casino, habitat...) a "🚪 Join ..."
+  button takes you into the same room, and you see each other with name tags. "Fly to ..." does it too.
+* NEW CITIES: London (Big Ben, London Eye, Tower Bridge, The Shard, Buckingham Palace, red buses),
+  Rio de Janeiro (Christ the Redeemer on Corcovado, Sugarloaf cable car, Copacabana, Maracanã) and
+  Quito (Basílica, El Panecillo, Cotopaxi, the Mitad del Mundo equator line). Each has its own airport
+  and new places to walk into.
+* STARBASE + STARSHIP: a Texas Gulf-coast town with the Mechazilla "chopsticks" tower, a full Starship
+  stack on the launch mount, a second pad, the Starfactory, the rocket garden and an airstrip. Walk up to the
+  tower and BOARD STARSHIP: countdown, liftoff, hot staging, the booster flies back and gets caught by the
+  chopsticks, a trip through space, then a belly flop and flip landing at Moon Base Artemis or Mars Base
+  Alpha (or skip to the landing). The bases have low gravity (big jumps), domes, a habitat you can enter,
+  space rovers to drive and a Starship home. Online, friends near the pad can ride along, and you land
+  together.
+
 NEW IN 3.5.1
 * TAXI TO GATE: on the ground at any of the 7 airports, slow (under ~20 kts) or stopped on a runway, taxiway
   or the apron, a big blue TAXI TO GATE button appears (desktop: press G). It is offered with a prompt as soon

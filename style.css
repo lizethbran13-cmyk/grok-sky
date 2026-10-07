@@ -395,3 +395,17 @@ body.touchdev #mpbadge { font-size: 10px; padding: 1px 7px 1px 5px; }
 body.ssride #touch, body.ssride #prompt, body.ssride #hint { display: none !important; }
 @media (max-width: 600px) { #ss-big { font-size: 32px; } #ss-sub { font-size: 14px; } }
 #mp-joinbtn { position: fixed; left: 50%; bottom: 112px; transform: translateX(-50%); z-index: 45; padding: 10px 16px; border-radius: 14px; border: 2px solid #fff; background: rgba(30, 120, 70, .9); color: #fff; font: 800 15px system-ui, sans-serif; display: none; max-width: 92vw; }
+/* 4.0: phone landscape title fits on one screen (planes in one row, 11 cities in two, PLAY visible) */
+@media (max-height: 500px) and (orientation: landscape) {
+  #title .card { max-width: 820px; padding: 8px 14px; }
+  #title .logo { font-size: 28px; margin: 0; }
+  #title .vertag { font-size: 11px; padding: 2px 10px; margin: 0 0 2px; }
+  #title .tag, #title .fine { display: none; }
+  #title .card h3 { margin: 4px 0 3px; font-size: 11px; }
+  #title .planes { grid-template-columns: repeat(6, 1fr); margin: 2px 0 4px; gap: 5px; }
+  #title .pchip { padding: 3px 2px; } #title .pchip .pi { font-size: 16px; } #title .pchip b { font-size: 11px; } #title .pchip small { display: none; }
+  #title #cities { grid-template-columns: repeat(6, 1fr); gap: 4px; }
+  #title .city { padding: 3px 2px; }
+  #title .mode { padding: 3px 6px; flex-direction: row; justify-content: center; align-items: center; gap: 6px; } #title .mode span { display: none; }
+  #title #play { margin-top: 6px; padding: 6px 28px; }
+}

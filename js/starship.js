@@ -97,6 +97,7 @@ SS.start = (from, dest, o) => {
   if (SKY.Places && SKY.Places.cur) SKY.Places.reset(); if (SKY.Cars && SKY.Cars.cur) return false;
   if (P.held) P.dropHeld();
   W.ensureCity(city(from)); ensureStatics();
+  if (SS.ghost) { const g = SS.ghost; if (g.model.parent) g.model.parent.remove(g.model); SS.ghost = null; }
   const R = SS.ride = { from, dest, phase: 'count', t: o.t0 || 0, T: 0, seat: o.seat || 0, crew: o.crew || [], model: null, booster: null, caught: false, sep: null, net: !!o.join, lastSec: -1 };
   // the ride model replaces the static ship we are standing next to
   R.model = from === 'SBX' ? stackModel() : shipModel(); G.scene.add(R.model);

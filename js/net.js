@@ -44,7 +44,7 @@ N.open = (o) => {
   const code = role === 'host' ? (GN.validCode(o.code) ? o.code : GN.makeCode()) : GN.normalizeCode(o.code);
   if (role === 'join' && !GN.validCode(code)) { panelStatus('Enter the 5-letter room code from your friend.', 'bad'); return null; }
   N.lastErr = null; N.byeFrom = {};
-  const room = N.room = GN.createRoom({ role, code, name, color, pid: o.pid, slot: o.slot, max: role === 'host' ? n : 3, autoCode: role === 'host' && !o.code, rejoin: !!o.rejoin, state: { v: 36 } });
+  const room = N.room = GN.createRoom({ role, code, name, color, pid: o.pid, slot: o.slot, max: role === 'host' ? n : 3, autoCode: role === 'host' && !o.code, rejoin: !!o.rejoin, state: { v: 40 } });
   room.on('status', (t) => { if (N.room === room) panelStatus(t); });
   room.on('open', () => {
     if (N.room !== room) return;
@@ -109,12 +109,14 @@ function myState() {
   const G = SKY.Game, P = SKY.Player, pl = G.plane, C = SKY.Cars, PL = SKY.Places, J = SKY.Jail;
   const r2 = (v) => Math.round(v * 100) / 100;
   const s = { t: 's', ts: Math.round(now()), m: 'title' };
+  s.ty = pl.typeId; s.th = Math.round(pl.throttle * 100) / 100; s.fl = pl.flaps || 0; s.og = pl.onGround ? 1 : 0; if (pl.follow) s.fw = 1; // 4.0 plane type + shared-flight data
   s.pp = [r2(pl.pos.x), r2(pl.pos.y), r2(pl.pos.z)]; s.pq = [pl.quat.x, pl.quat.y, pl.quat.z, pl.quat.w].map((v) => Math.round(v * 1e4) / 1e4); s.pv = [r2(pl.vel.x), r2(pl.vel.y), r2(pl.vel.z)]; s.gr = pl.gearDown && !pl.gearBroken ? 1 : 0; s.cr = pl.crashed ? 1 : 0;
   if (G.state === 'title' || !G.stats) return s;
   const car = C && C.cur;
   let p = P.pos, yaw = P.yaw, m;
   if (J && J.cur) m = 'jail';
   else if (P.dead) m = 'dead';
+  else if (P.mode === 'ride') m = 'ride';
   else if (car) { m = 'car'; p = car.pos; yaw = car.yaw; }
   else if (PL && PL.cur && PL.cur.kind === 'interior') { m = 'inside'; p = PL.mapRef(); }
   else if (P.frame === 'plane') { m = P.mode === 'pilot' ? 'pilot' : 'cabin'; p = pl.toWorld(P.pos.clone().setY(P.pos.y + 1)); }
@@ -123,7 +125,11 @@ function myState() {
   s.v = car ? [r2(Math.sin(car.yaw) * car.speed), 0, r2(Math.cos(car.yaw) * car.speed)] : P.frame === 'world' ? [r2(P.vel.x), r2(P.vel.y), r2(P.vel.z)] : s.pv;
   s.run = P.running ? 1 : 0;
   if (car) s.car = { k: carKey(car), ty: car.type, c: car.col, sp: r2(car.speed), st: car.stolen ? 1 : 0, br: car.braking ? 1 : 0 };
-  if (m === 'inside') s.pn = PL.cur.place.name;
+  if (m === 'inside') { s.pn = PL.cur.place.name; s.ip = [r2(P.pos.x), r2(P.pos.y), r2(P.pos.z)]; }
+  if (PL && PL.cur) s.pl = PL.cur.place.id; // 4.0: same interior / deck -> we see each other in there
+  if (P.frame === 'plane') { const sit = (P.mode === 'seat' || P.mode === 'pilot') && P.seat; s.lp = sit ? [r2(P.seat.x), 0, r2(P.seat.z)] : [r2(P.pos.x), r2(P.pos.y), r2(P.pos.z)]; s.ly = Math.round(P.yaw * 1000) / 1000; s.si = sit ? pl.seats.indexOf(P.seat) : -1; s.st = sit ? 1 : (hyp(P.vel.x, P.vel.z) > 0.5 ? 2 : 0); }
+  if (N.ride) s.ride = N.ride.pid;
+  if (m === 'ride' && SKY.Starship && SKY.Starship.ride) s.ss = SKY.Starship.ride.dest;
   if (C) { s.w = C.wanted; s.nc = C.evadeT <= 0.5 ? 1 : 0; s.hd = (PL && PL.cur) || P.frame !== 'world' || (J && J.cur) || C.busted ? 1 : 0; }
   if (J && J.cur) s.jl = Math.ceil(J.cur.left);
   s.city = curCity();
@@ -164,6 +170,7 @@ function onMsg(d, from) {
   else if (d.t === 'cd') carDrop(d);
   else if (d.t === 'cg') carGone(d.k);
   else if (d.t === 'bye') N.byeFrom[from] = true;
+  else if (d.t === 'ss') ssMsg(d, from);
   else if (d.t === 'ev') {
     const n = esc(d.n || 'Your partner');
     if (d.e === 'bust') SKY.toast('🚔 ' + d.n + ' got BUSTED — off to GROK JAIL!', 'warn');
@@ -189,6 +196,7 @@ function pushState(r, s) {
 }
 function dropRemote(pid) {
   const r = N.remotes[pid]; if (!r) return; delete N.remotes[pid];
+  const pl = SKY.Game && SKY.Game.plane; if (pl && pl.seats) for (const s of pl.seats) if (s.netTaken === pid) s.netTaken = null;
   if (r.plane) { r.plane.parent && r.plane.parent.remove(r.plane); if (r.planeGrid) r.planeGrid.dispose(); }
   if (r.tag) r.tag.remove(); if (r.chute) r.chute.parent && r.chute.parent.remove(r.chute);
   const C = SKY.Cars; if (C) { for (const c of C.police().slice()) if (c.tgt === pid && N.isHost()) c.tgtLost = true; for (const c of C.list) if (c.key && c.netHidden && c.key === r.lastCarKey) c.netHidden = false; }
@@ -209,12 +217,15 @@ function sample(r) {
     const f = (rt - A.ts) / Math.max(1, B.ts - A.ts);
     out.pp = v3('pp', f, A, B); _qa.fromArray(A.pq); _qb.fromArray(B.pq); out.pq = _qa.slerp(_qb, f).toArray();
     if (A.p && B.p && A.m === B.m && hyp(B.p[0] - A.p[0], B.p[2] - A.p[2]) < 60) { out.p = v3('p', f, A, B); out.yw = lerpA(A.yw, B.yw, f); } else if (B.p) { out.p = B.p.slice(); out.yw = B.yw; }
+    if (A.ip && B.ip && A.pl === B.pl) out.ip = v3('ip', f, A, B); else if (B.ip) out.ip = B.ip.slice();
+    if (A.lp && B.lp && A.si === B.si && hyp(B.lp[0] - A.lp[0], B.lp[2] - A.lp[2]) < 4) { out.lp = v3('lp', f, A, B); out.ly = lerpA(A.ly || 0, B.ly || 0, f); } else if (B.lp) { out.lp = B.lp.slice(); out.ly = B.ly || 0; }
     out.lag = 0;
   } else { // newest state is older than the render time -> extrapolate along its velocity (capped)
     const L = b[b.length - 1]; const dt = Math.max(0, Math.min(EXTRA_MAX, rt - L.ts)) / 1000;
     out.s = L; out.m = L.m;
     out.pp = [L.pp[0] + L.pv[0] * dt, L.pp[1] + L.pv[1] * dt, L.pp[2] + L.pv[2] * dt]; out.pq = L.pq.slice();
     if (L.p) { const v = L.v || [0, 0, 0]; out.p = [L.p[0] + v[0] * dt, L.p[1] + (L.m === 'chute' ? v[1] * dt : 0), L.p[2] + v[2] * dt]; out.yw = L.yw; }
+    if (L.ip) out.ip = L.ip.slice(); if (L.lp) { out.lp = L.lp.slice(); out.ly = L.ly || 0; }
     out.lag = rt - L.ts;
   }
   return out;
@@ -222,8 +233,16 @@ function sample(r) {
 
 // ------------------------------------------------------------------ remote visuals
 const remPlaneMat = {};
-function buildPlane(r) {
-  const G = SKY.Game; const fake = {}; const grid = SKY.Plane.prototype.buildGrid.call(fake); const g = new THREE.Group(); grid.build(g);
+function buildPlane(r, ty) {
+  const G = SKY.Game; const T = SKY.planeType(ty || 'B737'); const grid = SKY.Plane.buildGridFor(T.id); const g = new THREE.Group(); grid.build(g); r.planeTy = T.id;
+  if (T.id !== 'B737') { // 4.0: other types: a coloured tail cap + their own gear legs
+    const col = new THREE.Color(r.color); const m = remPlaneMat[r.color] || (remPlaneMat[r.color] = new THREE.MeshLambertMaterial({ color: col, emissive: col.clone().multiplyScalar(0.25) }));
+    const o = grid.origin || new THREE.Vector3(), s = grid.s; const top = o.y + grid.ny * s, back = o.z + grid.nz * s;
+    const fin = new THREE.Mesh(new THREE.BoxGeometry(0.5, Math.max(0.6, 2.6 * (T.S ? T.S * 3 : 1)), Math.max(0.8, 3.4 * (T.S ? T.S * 3 : 1))), m); fin.position.set(0, top - 1.2 * (T.S ? 0.5 : 1), back - 3 * (T.S ? 0.4 : 1)); g.add(fin);
+    const gear = new THREE.Group(); const gm = new THREE.MeshLambertMaterial({ color: 0x1a1a1a }); const gh = T.gearH;
+    for (const gp of T.gear.slice(0, 3)) { const w = new THREE.Mesh(new THREE.BoxGeometry(T.cls === 'small' ? 0.25 : 0.9, gh * 0.7, T.cls === 'small' ? 0.25 : 0.9), gm); w.position.set(gp[0], -gh * 0.62, gp[1]); gear.add(w); }
+    g.add(gear); g.userData.gear = gear; G.scene.add(g); r.plane = g; r.planeGrid = grid; return;
+  }
   // colour flash on the tail fin + wingtips so you can tell planes apart at a glance
   const col = new THREE.Color(r.color); const m = remPlaneMat[r.color] || (remPlaneMat[r.color] = new THREE.MeshLambertMaterial({ color: col, emissive: col.clone().multiplyScalar(0.25) }));
   const fin = new THREE.Mesh(new THREE.BoxGeometry(0.5, 2.6, 3.4), m); fin.position.set(0, 4.9, 14.6); g.add(fin);
@@ -244,7 +263,7 @@ function tagEl(r) {
   const box = $('mptags'); if (!box) return null;
   const el = document.createElement('div'); el.className = 'mptag'; el.innerHTML = '<b></b><small></small>'; box.appendChild(el); r.tag = el; return el;
 }
-const MODE_ICON = { pilot: '🧑‍✈️ flying', cabin: '💺 on board', foot: '🚶', chute: '🪂', car: '🚗', inside: '🏠', jail: '🔒 GROK JAIL', dead: '💫 KO', title: '⏳ on the title screen' };
+const MODE_ICON = { ride: '🚀 on Starship', pilot: '🧑‍✈️ flying', cabin: '💺 on board', foot: '🚶', chute: '🪂', car: '🚗', inside: '🏠', jail: '🔒 GROK JAIL', dead: '💫 KO', title: '⏳ on the title screen' };
 const _v = new THREE.Vector3(), _w = new THREE.Vector3();
 // per rendered frame (Game.render): place remote planes / avatars / cars / tags, smooth the host's police on clients
 N.frame = (dt) => {
@@ -257,8 +276,10 @@ N.frame = (dt) => {
     const r = N.remotes[pid]; const S = on ? sample(r) : null; r.cur = S;
     if (!S || S.m === 'title' || !S.pp) { if (r.plane) r.plane.visible = false; if (r.tag) r.tag.style.display = 'none'; continue; }
     // their plane (always: parked, taxiing or flying)
-    if (!r.plane) buildPlane(r);
-    r.plane.visible = true; r.plane.position.set(S.pp[0], S.pp[1], S.pp[2]); r.plane.quaternion.fromArray(S.pq); r.plane.userData.gear.visible = !!S.s.gr;
+    const pty = S.s.ty || 'B737'; if (r.plane && r.planeTy !== pty) { r.plane.parent && r.plane.parent.remove(r.plane); if (r.planeGrid) r.planeGrid.dispose(); r.plane = null; }
+    if (!r.plane) buildPlane(r, pty);
+    r.plane.visible = !(S.s.fw || (N.ride && N.ride.pid === pid)); // a rider's plane is a copy of the leader's: draw it once
+    r.plane.position.set(S.pp[0], S.pp[1], S.pp[2]); r.plane.quaternion.fromArray(S.pq); r.plane.userData.gear.visible = !!S.s.gr;
     // their body / car
     let anchor = null, extraY = 2.3;
     if (S.p) {
@@ -271,7 +292,10 @@ N.frame = (dt) => {
         const p = person(r); const vx = S.s.v ? hyp(S.s.v[0], S.s.v[2]) : 0;
         p.pos.set(S.p[0], S.p[1], S.p[2]); p.yaw = S.yw; p.state = S.m === 'chute' ? 'para' : S.m === 'dead' ? 'sit' : vx > 0.6 ? 'walk' : 'idle'; p.anim += dt * (S.s.run ? 1.8 : 1); p.panic = 0;
         p.pose(dt, false); p.render(writer); anchor = _v.set(S.p[0], S.p[1] + 2.25, S.p[2]);
-      } else if (S.m === 'pilot' || S.m === 'cabin') anchor = _v.set(S.pp[0], S.pp[1] + 6, S.pp[2]);
+      } else if (S.m === 'inside' && S.ip && SKY.Places && SKY.Places.cur && SKY.Places.cur.place.id === S.s.pl) { // same interior: draw them in here
+        const p = person(r); const vx = S.s.v ? hyp(S.s.v[0], S.s.v[2]) : 0; p.pos.set(S.ip[0], S.ip[1], S.ip[2]); p.yaw = S.yw; p.state = vx > 0.6 ? 'walk' : 'idle'; p.anim += dt; p.panic = 0; p.pose(dt, false); p.render(writer); anchor = _v.set(S.ip[0], S.ip[1] + 2.25, S.ip[2]);
+      } else if (S.m === 'ride') anchor = _v.set(S.p[0], S.p[1] + 60, S.p[2]);
+      else if (S.m === 'pilot' || S.m === 'cabin') anchor = _v.set(S.pp[0], S.pp[1] + 6, S.pp[2]);
       else anchor = _v.set(S.p[0], (S.p[1] || 0) + 3, S.p[2]);
     } else anchor = _v.set(S.pp[0], S.pp[1] + 6, S.pp[2]);
     void extraY;
@@ -291,6 +315,7 @@ N.frame = (dt) => {
   }
   for (const pid in N.remotes) { const r = N.remotes[pid]; if (!on && r.tag) r.tag.style.display = 'none'; }
   if (writer) writer.end();
+  joinButton(on);
   // cars my partners are driving are hidden here (their ghost car is drawn instead)
   if (C) for (const c of C.list) if (c.key) { const h = keys.has(c.key) && c !== C.cur; if (c.netHidden !== h) c.netHidden = h; }
   if (on && N.isClient()) smoothPolice(dt);
@@ -298,6 +323,149 @@ N.frame = (dt) => {
   if (on && G.plane && !G.plane.onGround && SKY.Player.mode === 'pilot') for (const pid in N.remotes) { const S = N.remotes[pid].cur; if (S && S.m === 'pilot' && S.pp && S.pp[1] - SKY.World.heightAt(S.pp[0], S.pp[2]) > 60 && hyp(S.pp[0] - G.plane.pos.x, S.pp[1] - G.plane.pos.y, S.pp[2] - G.plane.pos.z) < 300) G.achieve('formation'); }
   badge();
 };
+
+// ------------------------------------------------------------------ 4.0: fly together in ONE plane
+// The rider's own plane becomes a copy of the leader's type and follows the leader's interpolated pose every step
+// (pl.follow -> Plane.followStep), so both screens show the same flight; each side draws the other person in the cabin.
+const sharedWith = (r, S) => { const me = N.myPid(); if (!S || !S.s) return false; if (S.s.ride === me) return true; if (N.ride && (r.pid === N.ride.pid || S.s.ride === N.ride.pid)) return true; return false; };
+N.boardBlocked = () => !!N.ride;
+N.riding = () => N.ride;
+N.rideWith = (pid) => {
+  const G = SKY.Game, P = SKY.Player, r = N.remotes[pid]; const S = r && (r.cur || sample(r)); if (!S || !S.pp || !S.s) return false;
+  if (S.s.cr) { SKY.toast('💥 ' + r.name + '\'s plane is wrecked', 'warn'); return false; }
+  if (S.s.fw) { SKY.toast('🤝 ' + r.name + ' is riding in someone else\'s plane — board that one!', 'warn'); return false; }
+  if (SKY.Starship && SKY.Starship.ride) return false;
+  if (SKY.Cars && SKY.Cars.cur) { SKY.Cars.cur.speed = 0; SKY.Cars.exit(); if (SKY.Cars.cur) return false; }
+  if (SKY.Places && SKY.Places.cur) SKY.Places.reset();
+  const ty = S.s.ty || 'B737'; const city = SKY.World.nearestCity(S.pp[0], S.pp[2]).city;
+  G.rebuildPlane(ty, city, 'runway', true);
+  const pl = G.plane;
+  pl.follow = { p: new THREE.Vector3().fromArray(S.pp), q: new THREE.Quaternion().fromArray(S.pq), v: new THREE.Vector3().fromArray(S.s.pv || [0, 0, 0]), th: S.s.th || 0, gr: S.s.gr, fl: S.s.fl || 0, ok: true };
+  pl.pos.copy(pl.follow.p); pl.quat.copy(pl.follow.q); pl.vel.copy(pl.follow.v); pl.skipKick = 30; pl.ap.on = false; pl.group.position.copy(pl.pos); pl.group.quaternion.copy(pl.quat); pl.group.updateMatrixWorld(true);
+  // no NPC pilots in a shared plane: the leader flies it
+  SKY.Crowd.list = SKY.Crowd.list.filter((p) => { if (p.frame === 'plane' && (p.role === 'captain' || p.role === 'fo')) { if (p.seat && p.seat.occupant === p) p.seat.occupant = null; return false; } return true; });
+  N.ride = { pid, t: now() }; claimSeats();
+  const taken = (s) => s.netTaken || s.occupant; const ck = pl.seats.filter((s) => s.cockpit && !s.captain); const seat = ck.find((s) => !taken(s)) || pl.seats.find((s) => !s.cockpit && !taken(s));
+  P.frame = 'plane'; if (seat) P.sitSeat(seat); else { P.leaveSeat(); P.mode = 'foot'; P.pos.set(0, 0.02, 0); }
+  P.rideCam = true; P.pilotCam = 'chase'; G.camInit = false;
+  if (N.room) N.room.broadcast({ t: 'ss', a: 'board', n: N.prof.name });
+  G.achieve('copilot');
+  SKY.toast('🤝 You boarded ' + r.name + '\'s ' + pl.T.short + '! ' + (pl.small ? 'Sit back and enjoy the view.' : 'Sit back or stand up and walk the cabin.') + ' (camera: ' + (SKY.isTouch ? 'CAM' : 'V') + ')', 'good');
+  return true;
+};
+N.stopRiding = (silent, park) => {
+  const ride = N.ride; if (!ride) return; N.ride = null;
+  const G = SKY.Game, pl = G.plane, P = SKY.Player; pl.follow = null; P.rideCam = false; pl.skipKick = 30;
+  for (const s of pl.seats) s.netTaken = null;
+  if (park) { // my plane copy sits right where the leader's plane is: move it to a free gate (or off to the side)
+    const apt = SKY.Airport && SKY.Airport.nearest(pl.pos.x, pl.pos.z, 3000);
+    if (apt && SKY.Airport.placeAtGate) SKY.Airport.placeAtGate(apt.c); else { pl.pos.x += 70; pl.vel.set(0, 0, 0); pl.group.position.copy(pl.pos); pl.group.updateMatrixWorld(true); }
+  }
+  if (!silent) SKY.toast('🚪 You left ' + ((N.remotes[ride.pid] || {}).name || 'the') + '\'s plane — this one is yours now', '');
+};
+N.leaveRide = () => {
+  const G = SKY.Game, pl = G.plane; if (!N.ride) return false;
+  if (!(pl.onGround && pl.speed() < 3)) { SKY.toast('✋ Stay on board until ' + ((N.remotes[N.ride.pid] || {}).name || 'the pilot') + ' lands and stops', 'warn'); return false; }
+  N.stopRiding(false, true); return true;
+};
+N.onPlaneChange = () => { };
+// leader lost (left / disconnected / wrecked / swapped planes) -> the rider gets control
+function leaderLost(why) {
+  const G = SKY.Game, pl = G.plane, P = SKY.Player; const air = !pl.onGround;
+  N.stopRiding(true, !air);
+  if (air) { const cap = pl.seats.find((s) => s.captain); if (cap) { P.frame = 'plane'; P.sitPilot(cap); } pl.ap.on = true; pl.ap.alt = Math.max(pl.pos.y, 400); pl.ap.hdg = pl.heading() * Math.PI / 180; pl.ap.dest = null; pl.ap.mode = 'cruise'; pl.ap.by = 'player'; }
+  SKY.toast(why + (air ? ' — YOU have the controls now (autopilot holding)!' : ' — this plane is yours now.'), 'warn');
+}
+N.preStep = () => {
+  if (!N.ride) return; const G = SKY.Game, pl = G.plane, P = SKY.Player;
+  const r = N.remotes[N.ride.pid]; const S = r && (N.active() ? sample(r) : null);
+  if (!r || !S || !S.pp || S.m === 'title') { leaderLost('📡 ' + (r ? r.name : 'The pilot') + ' left'); return; }
+  if (S.s.cr) { leaderLost('💥 ' + r.name + '\'s plane crashed'); return; }
+  if ((S.s.ty || 'B737') !== pl.typeId) { leaderLost('✈ ' + r.name + ' switched planes'); return; }
+  const f = pl.follow; if (!f) { N.ride = null; return; }
+  f.p.fromArray(S.pp); f.q.fromArray(S.pq); f.v.fromArray(S.s.pv || [0, 0, 0]); f.th = S.s.th || 0; f.gr = S.s.gr; f.fl = S.s.fl || 0; f.ok = true;
+  if (P.frame === 'world' && !SKY.Places.cur) N.stopRiding(false, true); // walked out of the door
+};
+// seats taken by the other people in the shared plane (NPCs move out of them)
+function claimSeats() {
+  const pl = SKY.Game.plane; if (!pl || !pl.seats) return;
+  const want = {};
+  for (const pid in N.remotes) { const r = N.remotes[pid], S = r.cur || r.last && { s: r.last }; if (!S || !S.s || !sharedWith(r, S)) continue; if (S.s.si >= 0 && pl.seats[S.s.si]) want[S.s.si] = pid; }
+  pl.seats.forEach((s, i) => {
+    const w = want[i] || null; if (s.netTaken === w) return; s.netTaken = w;
+    if (w && s.occupant && s.occupant !== SKY.Player) { const o = s.occupant; s.occupant = null; SKY.Crowd.list = SKY.Crowd.list.filter((p) => p !== o); }
+    if (w && s.occupant === SKY.Player) { const alt = pl.seats.find((q) => !q.cockpit && !q.occupant && !q.netTaken); if (alt) SKY.Player.sitSeat(alt); }
+  });
+}
+let riderToast = {};
+N.renderRiders = (wp) => {
+  if (!N.active()) return; const G = SKY.Game; if (G.state === 'title') return;
+  let any = false;
+  for (const pid in N.remotes) {
+    const r = N.remotes[pid], S = r.cur; if (!S || !S.s || !S.lp || !(S.m === 'pilot' || S.m === 'cabin') || !sharedWith(r, S)) continue;
+    any = true;
+    if (S.s.ride === N.myPid() && !riderToast[pid]) { riderToast[pid] = true; SKY.toast('🤝 ' + r.name + ' boarded YOUR plane — fly nice!', 'good'); G.achieve('copilot'); }
+    if (!r.pperson) { const p = r.pperson = new SKY.Person('pax', 'plane'); p.shirt = new THREE.Color(r.color).getHex(); p.name = r.name; p.state = 'idle'; p.pose(0, true); }
+    const p = r.pperson; p.frame = 'plane'; p.pos.set(S.lp[0], S.lp[1] || 0, S.lp[2]); p.yaw = S.ly || 0; p.state = S.s.st === 1 ? 'sit' : S.s.st === 2 ? 'walk' : 'idle'; p.anim += SKY.DT; p.panic = 0;
+    p.pose(SKY.DT, false); p.render(wp);
+  }
+  for (const pid in riderToast) { const r = N.remotes[pid]; if (!r || !r.cur || !r.cur.s || r.cur.s.ride !== N.myPid()) delete riderToast[pid]; }
+  if (any || Object.values(G.plane.seats || []).some((s) => s.netTaken)) claimSeats();
+};
+// walk up to a partner's parked plane door -> board it
+N.boardTargets = () => {
+  const out = []; if (!N.active() || N.ride) return out; const P = SKY.Player; if (P.frame !== 'world' || P.mode !== 'foot' || (SKY.Places && SKY.Places.cur)) return out;
+  for (const pid in N.remotes) {
+    const r = N.remotes[pid], S = r.cur; if (!S || !S.s || !S.pp || S.s.cr || S.s.fw || !r.plane) continue;
+    const v = S.s.pv ? hyp(S.s.pv[0], S.s.pv[1], S.s.pv[2]) : 0; if (v > 3) continue;
+    const T = SKY.planeType(S.s.ty || 'B737'); const C0 = SKY.PlaneConst; const dz = T.door.z == null ? (C0.DOOR_L1.z0 + C0.DOOR_L1.z1) / 2 : T.door.z;
+    const dp = r.plane.localToWorld(new THREE.Vector3(T.door.x, 0.6, dz));
+    if (hyp(dp.x - P.pos.x, dp.z - P.pos.z) > (T.cls === 'small' ? 5 : 8) || Math.abs(dp.y - P.pos.y) > 7) continue;
+    out.push({ pos: dp, r: 9, label: () => '🤝 Board ' + r.name + '\'s ' + T.short + ' (fly together)', act: () => N.rideWith(pid) });
+  }
+  return out;
+};
+// floating HUD button: join a friend in a place / at a space base / launch, or board their parked plane
+let jb = null, ssOffer = null;
+function joinButton(on) {
+  if (!jb) { jb = document.createElement('button'); jb.id = 'mp-joinbtn'; document.body.appendChild(jb); jb.addEventListener('pointerdown', (e) => e.stopPropagation()); jb.addEventListener('click', (e) => { e.stopPropagation(); const a = jb._act; jb.style.display = 'none'; jb._t = ''; if (a) a(); }); }
+  const G = SKY.Game, P = SKY.Player, PL = SKY.Places; let label = null, act = null;
+  if (on && G.state === 'play' && !G.ui && P.mode !== 'ride' && !(SKY.Jail && SKY.Jail.cur)) {
+    if (ssOffer && now() < ssOffer.until) { const left = Math.ceil((ssOffer.until - now()) / 1000); label = '🚀 Ride along with ' + ssOffer.name + ' → ' + SKY.Starship.DEST[ssOffer.dest].short + ' (' + left + ')'; const o = ssOffer; act = () => { ssOffer = null; SKY.Starship.start(o.from, o.dest, { join: true, t0: (now() - o.at) / 1000, seat: 1 }); if (N.room) N.room.broadcast({ t: 'ss', a: 'join', n: N.prof.name }); }; }
+    else for (const pid in N.remotes) {
+      const r = N.remotes[pid], S = r.cur; if (!S || !S.s) continue;
+      const mine = PL && PL.cur ? PL.cur.place.id : null; const ref = P.frame === 'world' ? P.pos : G.plane.pos;
+      if (S.s.pl && S.s.pl !== mine && !N.ride) { const q = PL.list.find((x) => x.id === S.s.pl); if (q) { label = '🚪 Join ' + r.name + ' in ' + q.name; act = () => N.joinPlace(q.id); break; } }
+      const sc = S.s.city && SKY.World.city(S.s.city);
+      if (sc && sc.space && (S.m === 'foot' || S.m === 'car') && SKY.World.nearestCity(ref.x, ref.z).city !== sc && !N.ride) { label = '🚀 Join ' + r.name + ' at ' + sc.name; act = () => { if (SKY.Places.cur) SKY.Places.reset(); if (SKY.Cars.cur) { SKY.Cars.cur.speed = 0; SKY.Cars.exit(); } SKY.Starship.arriveNow(sc.id, 1); }; break; }
+      if ((S.m === 'pilot' || S.m === 'cabin') && !S.s.fw && !S.s.cr && S.s.og && !N.ride && P.frame === 'world' && P.mode === 'foot' && !mine && hyp(S.pp[0] - P.pos.x, S.pp[2] - P.pos.z) < 400) { label = '🤝 Board ' + r.name + '\'s ' + SKY.planeType(S.s.ty || 'B737').short; act = () => N.rideWith(pid); break; }
+    }
+  }
+  if (!label) { if (jb.style.display !== 'none') jb.style.display = 'none'; jb._t = ''; return; }
+  jb._act = act; if (jb._t !== label) { jb.textContent = label; jb._t = label; } if (jb.style.display !== 'block') jb.style.display = 'block';
+}
+N.joinPlace = (id) => {
+  const PL = SKY.Places; const q = PL.list.find((x) => x.id === id); if (!q) return false;
+  if (SKY.Cars && SKY.Cars.cur) { SKY.Cars.cur.speed = 0; SKY.Cars.exit(); }
+  if (PL.cur) PL.reset();
+  if (q.city.space) SKY.Starship.arriveNow(q.city.id, 1);
+  if (!PL.travel(id)) return false;
+  PL.enter(q); return true;
+};
+// Starship: tell friends we boarded (they can ride along during the countdown, or watch the launch), skip together
+N.ssBoard = (from, dest) => { if (N.active() && N.room.count() > 1) N.room.broadcast({ t: 'ss', a: 'go', from, dest, n: N.prof.name }); };
+N.ssSkip = () => { if (N.active() && N.room.count() > 1) N.room.broadcast({ t: 'ss', a: 'skip' }); };
+function ssMsg(d, from) {
+  const SS = SKY.Starship, G = SKY.Game, P = SKY.Player; const r = N.remotes[from]; const nm = (r && r.name) || d.n || 'Your friend';
+  if (d.a === 'board') { return; }
+  if (d.a === 'join') { SKY.toast('🤝 ' + nm + ' is riding Starship with you!', 'good'); return; }
+  if (d.a === 'skip') { if (SS && SS.ride) SS.skip(false); return; }
+  if (d.a !== 'go' || !SS || G.state !== 'play' || !SS.DEST[d.dest]) return;
+  const ref = P.frame === 'world' ? P.pos : G.plane.pos; const bp = SS.boardPos(d.from); const near = hyp(bp.x - ref.x, bp.z - ref.z) < 900;
+  if (!SS.ride) SS.watch(d.from, d.dest);
+  if (near && !SS.ride) { const cnt = d.from === 'SBX' ? 10 : 5; ssOffer = { from: d.from, dest: d.dest, name: nm, at: now(), until: now() + (cnt - 1.5) * 1000 }; SKY.toast('🚀 ' + nm + ' boarded Starship → ' + SS.DEST[d.dest].name + ' — tap "Ride along" to fly together!', 'good'); }
+  else SKY.toast('🚀 ' + nm + ' is launching from ' + (d.from === 'SBX' ? 'Starbase' : SS.DEST[d.from].name) + ' to ' + SS.DEST[d.dest].name + '!', '');
+}
 
 // ------------------------------------------------------------------ police (host authoritative)
 // target info for the host's police AI: latest state of that player, extrapolated to now
@@ -423,6 +591,7 @@ function renderPanel() {
   play.disabled = !connected && G.state === 'title' && !room.isHost;
   const others = list.filter((pl) => pl.pid !== room.pid);
   const go = $('mp-goto'); go.style.display = G.state !== 'title' && others.length ? '' : 'none'; if (others.length) go.textContent = '📍 Fly to ' + others[0].name;
+  const rb = $('mp-ride'); if (rb) { rb.style.display = G.state !== 'title' && (others.length || N.ride) ? '' : 'none'; rb.textContent = N.ride ? '🚪 Leave ' + ((N.remotes[N.ride.pid] || {}).name || '') + '\'s plane' : others.length ? '🤝 Ride in ' + others[0].name + '\'s plane' : ''; }
 }
 function buildPanel() {
   const p = $('mp'); if (!p) return;
@@ -442,6 +611,7 @@ function buildPanel() {
   $('mp-x').onclick = () => showPanel(false);
   $('mp-play').onclick = () => { const G = SKY.Game, room = N.room; showPanel(false); N.wantStart = false; N.auto = null; if (G.state === 'title') { const m = room && !room.isHost ? room.meta() : {}; G.start(m.city || G.startCity); } else if (G.state === 'paused') G.resume(); };
   $('mp-goto').onclick = () => N.gotoPartner();
+  const rbt = $('mp-ride'); if (rbt) rbt.onclick = () => { showPanel(false); const G = SKY.Game; if (G.state === 'paused') G.resume(); if (N.ride) N.leaveRide(); else { const r = Object.values(N.remotes)[0]; if (r) N.rideWith(r.pid); } renderPanel(); };
   const tb = $('t-online'); if (tb) tb.onclick = () => { SKY.Audio.init(); showPanel(true); };
   const pb = $('p-online'); if (pb) pb.onclick = () => showPanel(true);
 }
@@ -450,6 +620,8 @@ N.gotoPartner = (pid) => {
   const G = SKY.Game; const r = pid ? N.remotes[pid] : Object.values(N.remotes)[0]; const S = r && (r.cur || sample(r)); if (!S || !S.s) return false;
   const wp = S.p || S.pp; const city = SKY.World.nearestCity(wp[0], wp[2]).city; const air = S.m === 'pilot' && S.pp[1] - SKY.World.heightAt(S.pp[0], S.pp[2]) > 80;
   showPanel(false); if (G.state === 'paused') G.resume();
+  if (S.s.pl && N.joinPlace(S.s.pl)) return true; // 4.0: same interior / deck
+  if (city.space) { SKY.Starship.arriveNow(city.id, 1); SKY.toast('🚀 Beamed over to ' + r.name + ' at ' + city.name, 'good'); return true; }
   G.fastTravel(city.id, city.apt ? (air ? 'approach' : 'gate') : 'runway');
   SKY.toast('📍 Heading to ' + r.name + ' in ' + city.name, 'good');
   return true;

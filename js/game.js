@@ -94,6 +94,7 @@ const G = SKY.Game = {
   nextCity(c) { const order = SKY.World.routeOrder || ['LA', 'LAS', 'MEX', 'NYC', 'PAR', 'TYO']; const i = order.indexOf(c.id); return SKY.World.city(order[(i + 1) % order.length] || 'LAS'); },
   fastTravel(id, mode) {
     const city = SKY.World.city(id); const pl = this.plane; const P = SKY.Player;
+    if (SKY.Net && SKY.Net.ride) SKY.Net.stopRiding(true); // 4.0: travelling elsewhere ends a shared flight
     const A = SKY.Airport;
     if (pl.typeId !== this.planeType && !(this.state === 'over' || pl.crashed || P.dead)) { this.rebuildPlane(this.planeType, city, mode); this.closeMap(); return; }
     if (this.state === 'over' || pl.crashed || pl.integrity < 0.5 || P.dead) { this.startMode = 'pilot'; this.start(id, 'pilot'); if (mode === 'approach') { pl.place(city, 'approach'); this.wasAirborne = true; } else if (mode === 'gate' && A) A.placeAtGate(city); this.closeMap(); return; }
@@ -117,7 +118,7 @@ const G = SKY.Game = {
     this.closeMap();
   },
   // 4.0: swap to another aircraft type without restarting the session (you end up in the captain seat)
-  rebuildPlane(type, city, mode) {
+  rebuildPlane(type, city, mode, quiet) {
     const pl = this.plane, P = SKY.Player, A = SKY.Airport;
     if (SKY.Net && SKY.Net.stopRiding) SKY.Net.stopRiding(true);
     if (SKY.Places && SKY.Places.cur) SKY.Places.reset();
@@ -135,7 +136,7 @@ const G = SKY.Game = {
     pl.ap.dest = this.nextCity(city); pl.ap.alt = pl.T.alt; if (mode === 'runway') { pl.ap.mode = 'takeoff'; pl.ap.rwyX = city.ax; pl.ap.hdg = 0; pl.ap.on = false; }
     this.wasAirborne = mode === 'approach'; this.camInit = false; if (this.stats) this.stats.cities.add(city.id);
     if (SKY.Net && SKY.Net.onPlaneChange) SKY.Net.onPlaneChange();
-    SKY.toast(pl.T.icon + ' ' + pl.T.name + ' ready at ' + city.name + (mode === 'gate' ? ' (parked at a gate)' : mode === 'approach' ? ' — on final approach' : ' — lined up on the runway') + '. You have the controls!', 'good');
+    if (!quiet) SKY.toast(pl.T.icon + ' ' + pl.T.name + ' ready at ' + city.name + (mode === 'gate' ? ' (parked at a gate)' : mode === 'approach' ? ' — on final approach' : ' — lined up on the runway') + '. You have the controls!', 'good');
   },
   // can the plane be swapped right now? (never mid-air)
   canSwapPlane() { const pl = this.plane, P = SKY.Player; if (this.state === 'title') return true; if (pl.crashed || P.dead) return true; if (pl.follow) return true; return pl.onGround && pl.speed() < 3 || (P.frame === 'world' && (pl.onGround || pl.crashed)); },
@@ -203,6 +204,7 @@ const G = SKY.Game = {
     if (AL && AL.active) { if (playerFlying) ctl = AL.control(dt); else AL.cancel('silent'); }
     if (TG && TG.active) { ctl = TG.control(dt); pl.ap.on = false; } // keeps taxiing even if the captain gets up for a stretch
     if (pl.crashed) { ctl = { pitch: 0, roll: 0, yaw: 0 }; pl.throttle = 0; }
+    if (SKY.Net && SKY.Net.preStep) SKY.Net.preStep(dt); // 4.0: riding in a friend's plane
     pl.update(dt, ctl, this.fx);
     if (AL && AL.active) AL.post(dt);
     if (SKY.Airport) SKY.Airport.update(dt);
@@ -332,7 +334,7 @@ const G = SKY.Game = {
     else if (inside) wind = clamp(pl.leakArea * 0.4, 0, 1) * clamp(spd / 100, 0.2, 1) + (pl.dP > 0.01 ? 0.6 : 0);
     else if (P.mode === 'pilot') wind = clamp(spd / 260, 0, 0.45);
     A.setWind(wind);
-    const pilotsDown = !SKY.Crowd.pilots().length && P.mode !== 'pilot' && !pl.ap.on && !pl.onGround;
+    const pilotsDown = !SKY.Crowd.pilots().length && P.mode !== 'pilot' && !pl.ap.on && !pl.onGround && !pl.follow;
     A.setAlarm((pl.decomp && pl.dP > 0.002) || pl.stall || (pl.fires.some((f) => !f.ext)) || (P.mode === 'pilot' && pl.altitude() < 150 && pl.vel.y < -12 && !pl.crashed) || (pilotsDown && !pl.crashed) || (P.o2 < 30 && P.frame === 'plane'));
     A.tick(dt);
   },
@@ -450,7 +452,7 @@ const G = SKY.Game = {
     if (pl.stall) al.push('⚠ STALL');
     if (!pl.crashed && P.mode === 'pilot' && pl.altitude() < 200 && pl.vel.y < -12) al.push('⚠ PULL UP');
     if (pl.fires.some((f) => !f.ext)) al.push('🔥 CABIN FIRE');
-    if (!SKY.Crowd.pilots().length && P.mode !== 'pilot' && !pl.ap.on && !pl.onGround && !pl.crashed) al.push('⚠ NOBODY IS FLYING');
+    if (!SKY.Crowd.pilots().length && P.mode !== 'pilot' && !pl.ap.on && !pl.onGround && !pl.crashed && !pl.follow) al.push('⚠ NOBODY IS FLYING');
     if (P.o2 < 35 && !P.dead) al.push('😵 HYPOXIA — FIND A MASK OR DESCEND');
     if (pl.turb.on > 0) al.push('🔔 TURBULENCE');
     if (pl.oven.state === 'cooking') al.push('🍳 Oven ' + pl.oven.t.toFixed(1) + 's ' + (pl.oven.t < 7 ? '(cooking...)' : pl.oven.t <= 10.5 ? '(PERFECT — take it out!)' : '(BURNING!)'));

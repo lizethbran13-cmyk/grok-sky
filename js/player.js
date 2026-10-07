@@ -126,7 +126,7 @@ const P = SKY.Player = {
     else { const s = pl.seats.filter((s) => !s.cockpit && !s.occupant)[0]; if (s) this.sitSeat(s); else { this.mode = 'foot'; this.pos.set(0, 0.01, 0); } }
   },
   sitSeat(s) { this.leaveSeat(); this.seat = s; s.occupant = this; this.mode = 'seat'; this.pos.set(s.x, 0, s.z); this.vel.set(0, 0, 0); this.yaw = 0; this.pitch = 0; },
-  sitPilot(s) { this.leaveSeat(); this.seat = s; s.occupant = this; this.mode = 'pilot'; this.pos.set(s.x, 0, s.z); this.vel.set(0, 0, 0); this.yaw = 0; this.pitch = -0.05; this.plane.ap.on = false; SKY.toast('🧑‍✈️ You have the controls', 'good'); },
+  sitPilot(s) { if (this.plane.follow) return this.sitSeat(s); this.leaveSeat(); this.seat = s; s.occupant = this; this.mode = 'pilot'; this.pos.set(s.x, 0, s.z); this.vel.set(0, 0, 0); this.yaw = 0; this.pitch = -0.05; this.plane.ap.on = false; SKY.toast('🧑‍✈️ You have the controls', 'good'); },
   leaveSeat() {
     if (this.seat) { if (this.seat.occupant === this) this.seat.occupant = null; const s = this.seat; this.seat = null; this.mode = 'foot'; this.pos.set(s.cockpit ? 0 : 0, 0.02, s.cockpit ? s.z + 0.5 : s.z); this.vel.set(0, 0, 0); if (s.cockpit && this.plane.ap.on) SKY.toast('Autopilot holding course', ''); }
     this.mode = this.mode === 'pilot' || this.mode === 'seat' ? 'foot' : this.mode;
@@ -457,18 +457,18 @@ const P = SKY.Player = {
     const addP = (prio, ...a) => { const n = cands.length; add(...a); if (cands.length > n) cands[n].prio = prio; };
     if (this.mode === 'seat') add(this.eye.clone().add(this.dir), 2, pl.small ? '🚪 Get out of the plane' : 'Stand up', () => this.standUp());
     if (this.frame === 'plane' && pl.small) { // seats only: swap seats, talk
-      for (const s of pl.seats) { if (s.occupant === this) continue; const sp = new THREE.Vector3(s.x, 0.7, s.z); if (!s.occupant) add(sp, 2.2, s.cockpit ? (s.captain && !pl.follow ? '🧑‍✈️ Move to the captain seat' : '💺 Move to the ' + (s.captain ? 'left' : 'right') + ' front seat') : '💺 Move to this seat', () => { if (s.captain && !pl.follow) this.sitPilot(s); else this.sitSeat(s); }); }
+      for (const s of pl.seats) { if (s.occupant === this || s.netTaken) continue; const sp = new THREE.Vector3(s.x, 0.7, s.z); if (!s.occupant) add(sp, 2.2, s.cockpit ? (s.captain && !pl.follow ? '🧑‍✈️ Move to the captain seat' : '💺 Move to the ' + (s.captain ? 'left' : 'right') + ' front seat') : '💺 Move to this seat', () => { if (s.captain && !pl.follow) this.sitPilot(s); else this.sitSeat(s); }); }
       for (const p of SKY.Crowd.list) if (p.frame === 'plane' && p.conscious && p.role !== 'captain') add(p.pts[0].p, 2.0, 'Talk to ' + p.name, () => this.talkTo(p));
     } else if (this.frame === 'plane') {
       const cz = Cn.COCK_Z;
       // seats
       for (const s of pl.seats) {
-        if (Math.abs(s.z - this.pos.z) > 1.6) continue;
+        if (Math.abs(s.z - this.pos.z) > 1.6 || s.netTaken) continue;
         const sp = new THREE.Vector3(s.x, 0.6, s.z);
         if (s.cockpit) {
           const occ = s.occupant;
           if (occ === this) continue;
-          if (!occ) add(sp, 1.8, 'Take the controls (' + (s.captain ? 'Captain' : 'First Officer') + ' seat)', () => this.sitPilot(s));
+          if (!occ) add(sp, 1.8, pl.follow ? '💺 Sit in the ' + (s.captain ? 'captain' : 'co-pilot') + ' seat' : 'Take the controls (' + (s.captain ? 'Captain' : 'First Officer') + ' seat)', () => this.sitPilot(s));
           else if (occ.conscious) add(sp, 1.8, 'Ask ' + occ.name + ' to let you fly', () => { occ.refuse++; if (occ.refuse < 3) { occ.talk(choose(['Absolutely not!', 'Please return to your seat.', 'Not a chance, pal.', 'Who let you in here?!']), 2.5); SKY.Audio.play('error'); } else { occ.talk('FINE. Your airplane! 🙄', 3); occ.leaveSeat(); occ.state = 'idle'; occ.pos.set(0.2, 0, -12.7); occ.t = 999; occ.pose(0, true); this.sitPilot(s); } });
           else add(sp, 1.8, 'Move ' + occ.name + ' and take the seat', () => { occ.leaveSeat(); occ.state = 'rag'; for (const pt of occ.pts) pt.o.copy(pt.p); occ.pts.forEach((pt) => pt.p.x += 0.5); this.sitPilot(s); });
         } else if (!s.occupant) add(sp, 1.2, 'Sit down', () => this.sitSeat(s));
@@ -517,6 +517,7 @@ const P = SKY.Player = {
       // world interactables
       for (const it of SKY.World.interactables) { const l = it.label(); if (l) add(it.pos, it.r, l, it.act); }
       if (SKY.Cars) for (const it of SKY.Cars.targets()) addP(0.6, it.pos, it.r, it.label(), it.act);
+      if (SKY.Net && SKY.Net.boardTargets) for (const it of SKY.Net.boardTargets()) addP(0.8, it.pos, it.r, it.label(), it.act); // 4.0: board a friend's plane
       if (this.plane.speed() < 3 && !this.plane.crashed && !(SKY.Net && SKY.Net.boardBlocked && SKY.Net.boardBlocked())) { const T = this.plane.T; const dp = this.plane.toWorld(new THREE.Vector3(T.door.x, 0, T.door.z == null ? (C().DOOR_L1.z0 + C().DOOR_L1.z1) / 2 : T.door.z)); const near = Math.hypot(dp.x - this.pos.x, dp.z - this.pos.z) < 7 && Math.abs(dp.y - this.pos.y) < 6; if (near) add(new THREE.Vector3(this.pos.x, this.pos.y + 1.4, this.pos.z).addScaledVector(this.dir, 1), 3, '✈ Board the plane', () => this.board()); }
     }
     for (const c of cands) if (c.prio) c.score -= c.prio;
