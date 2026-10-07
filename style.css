@@ -369,3 +369,21 @@ body.panel-open #toasts { display: none; } /* 3.5.1: never over the GROK JAIL pa
 @media (max-height: 500px) { #mp { padding: 8px 14px; } #mp .mpline { margin: 5px 0; } #mp .go { min-height: 44px; } #mp .mpcode b { font-size: 30px; } #mp-setup .fine { display: none; } }
 body.touchdev #mpbadge { font-size: 10px; padding: 1px 7px 1px 5px; }
 @media (orientation: portrait) and (max-width: 600px) { body.touchdev #mpbadge { left: calc(166px + env(safe-area-inset-left)); top: calc(82px + env(safe-area-inset-top)); transform: none; max-width: calc(100vw - 290px); overflow: hidden; text-overflow: ellipsis; } body.touchdev #mpbadge .ms { display: none; } } /* portrait: right of the vitals card (the city line runs under the compass) */
+/* ---------- 4.0 plane picker ---------- */
+.planes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 4px 0 8px; }
+#mapplanes { grid-template-columns: repeat(6, 1fr); align-items: stretch; }
+#mapplanes > .fine { grid-column: 1 / -1; text-align: left; margin: 0; }
+.pchip { display: flex; flex-direction: column; align-items: center; padding: 6px 3px; background: #1b2b4d; border: 2px solid transparent; border-radius: 10px; color: #fff; line-height: 1.15; }
+.pchip .pi { font-size: 20px; } .pchip b { font-size: 12px; } .pchip small { font-size: 9px; opacity: .75; }
+.pchip.sel { border-color: #ff6a1a; background: #3a2a2a; }
+#planePanel { width: min(480px, calc(100% - 16px)); max-height: calc(100% - 16px); overflow-y: auto; z-index: 33; text-align: left; }
+.pcard { display: flex; gap: 10px; width: 100%; text-align: left; align-items: flex-start; margin: 5px 0; padding: 8px 10px; background: #1b2b4d; border: 2px solid transparent; border-radius: 12px; color: #fff; }
+.pcard.sel { border-color: #57ff7a; }
+.pcard .pi { font-size: 28px; line-height: 1; }
+.pcard b { display: block; font-size: 14px; } .pcard small { display: block; font-size: 11px; opacity: .85; margin-top: 2px; }
+.pcard .rw { opacity: .7; }
+.pstat { display: flex; align-items: center; gap: 6px; font-size: 10px; margin-top: 2px; }
+.pstat span { width: 44px; opacity: .8; } .pstat div { flex: 1; height: 6px; background: rgba(255,255,255,.15); border-radius: 3px; overflow: hidden; }
+.pstat i { display: block; height: 100%; background: linear-gradient(90deg, #ffd23d, #ff6a1a); }
+.warnline { background: rgba(255,120,40,.2); border-radius: 8px; padding: 6px 8px; }
+@media (max-width: 520px) { #mapplanes { grid-template-columns: repeat(3, 1fr); } .pchip small { display: none; } }

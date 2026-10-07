@@ -130,11 +130,14 @@ SKY.Audio = (() => {
     sirenOsc = ctx.createOscillator(); sirenOsc.type = 'triangle'; sirenOsc.frequency.value = 700;
     sirenGain = ctx.createGain(); sirenGain.gain.value = 0; sirenOsc.connect(sirenGain); sirenGain.connect(master); sirenOsc.start();
   }
-  function setEngine(thr, on, inside) {
+  let engKind = '';
+  function setEngine(thr, on, inside, kind) { // 4.0: kind = { mul, prop } per aircraft type (pitch + propeller buzz)
     if (!ctx) return; const t = ctx.currentTime;
-    const f = 45 + thr * 70;
-    engOsc1.frequency.setTargetAtTime(f, t, 0.3); engOsc2.frequency.setTargetAtTime(f * 1.51, t, 0.3);
-    engFilt.frequency.setTargetAtTime((inside ? 250 : 500) + thr * 900, t, 0.3);
+    const mul = (kind && kind.mul) || 1, prop = !!(kind && kind.prop);
+    const k = prop ? 'p' : 'j'; if (k !== engKind) { engKind = k; engOsc1.type = prop ? 'square' : 'sawtooth'; }
+    const f = prop ? (38 + thr * 52) * mul : (45 + thr * 70) * mul;
+    engOsc1.frequency.setTargetAtTime(f, t, 0.3); engOsc2.frequency.setTargetAtTime(f * (prop ? 2.02 : 1.51), t, 0.3);
+    engFilt.frequency.setTargetAtTime(((inside ? 250 : 500) + thr * 900) * Math.sqrt(mul), t, 0.3);
     engGain.gain.setTargetAtTime(on ? (0.05 + thr * 0.13) * (inside ? 0.6 : 1) : 0, t, 0.2);
   }
   function setWind(level) {

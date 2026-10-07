@@ -40,9 +40,9 @@ AL.evaluate = () => {
     if (Math.abs(lat) > cone) continue;
     const herr = Math.abs(wrap(trk - e.hdg));
     if (herr > 1.15) continue;                       // within ~65° of the runway heading
-    const minS = 1400 + Math.max(0, spd - 80) * 22;  // room to slow down
+    const VA = pl.T.vapp, minS = (pl.small && VA < 45 ? 700 : 1400) + Math.max(0, spd - VA * 1.18) * 22;  // room to slow down
     if (s < minS) { AL.why = 'too fast / too close for ' + AL.label(e); continue; }
-    const gsH = (s + 150) * GS; const maxDrop = 12 * s / Math.max(spd, 70) * 0.85;
+    const gsH = (s + 150) * GS; const maxDrop = 12 * s / Math.max(spd, VA) * 0.85;
     if (agl - gsH > maxDrop) { AL.why = 'too high for ' + AL.label(e) + ' — descend'; continue; }
     if (agl > 2200) { AL.why = 'too high'; continue; }
     const score = s * 0.0005 + Math.abs(lat) / cone + herr;
@@ -82,7 +82,7 @@ AL.control = (dt) => {
     if (spd < 0.8) { const lbl = A.label; AL.active = null; SKY.toast('✅ Auto-land complete: stopped on runway ' + lbl + '.', 'good'); SKY.Audio.play('ok'); G.achieve('autoland'); if (SKY.TaxiGate) SKY.TaxiGate.offerAfterLanding(); }
     return out;
   }
-  const tgtV = s > 2500 ? 74 : 68;
+  const VA = pl.T.vapp, tgtV = s > 2500 ? VA * 1.09 : VA;
   if (agl < 6) { A.phase = 'flare'; pl.throttle = 0; }
   else { if (agl < 14) A.phase = 'flare'; pl.throttle = clamp(0.32 + (tgtV - spd) * 0.04, 0, 0.9); }
   pl.brake = false; pl.gearDown = true; if (pl.flaps < 2) pl.flaps = 2;
@@ -102,7 +102,7 @@ AL.post = (dt) => {
     pl.w.y *= 0.5; return;
   }
   // desired ground speed along the approach
-  const V = A.phase === 'flare' ? 64 : (s > 2500 ? 74 : 68);
+  const VA = pl.T.vapp, V = A.phase === 'flare' ? VA * 0.94 : (s > 2500 ? VA * 1.09 : VA);
   // lateral: converge on the centreline (intercept angle limited to ~35°)
   const vlat = clamp(-lat * (s > 3000 ? 0.035 : 0.07), -V * 0.55, V * 0.55) * (s < 600 ? 1.4 : 1);
   const valong = Math.sqrt(Math.max(1, V * V - vlat * vlat));

@@ -147,6 +147,8 @@ function buildMisc(apt) {
   const mid = apt.gates[Math.floor(apt.gates.length / 2)];
   W.interactables.push({ city: c, pos: new THREE.Vector3(XF + side * (TD - 5.5), 4.5, mid.gz - lv * 6), r: 9, label: () => '📋 Departures board', act: () => departures(apt) });
   const g0 = apt.gates[0];
+  W.interactables.push({ city: c, pos: new THREE.Vector3(XF + side * 30.5, 1.2, g0.gz - lv * 4), r: 5, label: () => '✈ Plane desk — choose your plane (' + SKY.Game.plane.T.short + ' now)', act: () => SKY.Game.openPlanePick('kiosk') });
+  { const hx = ax + side * 220, hz = az - L / 2 - 110; W.interactables.push({ city: c, pos: new THREE.Vector3(hx - side * 12, 1.2, hz), r: 10, label: () => '🛩 Hangar — pick a plane to fly', act: () => SKY.Game.openPlanePick('kiosk') }); }
   W.interactables.push({ city: c, pos: new THREE.Vector3(XF + side * 24.5, 1.2, g0.gz - lv * 16), r: 5, label: () => '☕ Airport café — grab a coffee', act: () => { const P = SKY.Player; P.hp = Math.min(100, P.hp + 10); SKY.toast('☕ A ' + SKY.choose(['latte', 'flat white', 'cold brew', 'café de olla', 'matcha']) + ' at the ' + apt.code + ' café (+10 HP)', 'good'); SKY.Audio.play('eat'); } });
   const gl = apt.gates[apt.gates.length - 1];
   W.interactables.push({ city: c, pos: new THREE.Vector3(XF + side * 27.5, 1.2, gl.gz - lv * 10), r: 6, label: () => '🧳 Check-in counter', act: () => SKY.toast('🧳 Checked in! Boarding pass: ' + apt.code + ' → ' + SKY.Game.nextCity(c).name + ' · Gate ' + (freeGate(apt) || apt.gates[0]).name + ' · Seat ' + (10 + Math.floor(Math.random() * 20)) + SKY.choose(['A', 'C', 'D', 'F']), 'good') });
@@ -268,7 +270,7 @@ A.dockAt = (apt, g, instant) => {
   const pl = SKY.Game.plane;
   A.dock = { apt, gate: g, phase: instant ? 'docked' : 'snap', t: 0, from: { x: pl.pos.x, z: pl.pos.z, h: pl.heading() * Math.PI / 180 } };
   A.taxi = null; pl.ap.mode = 'hold'; pl.throttle = 0; pl.brake = true;
-  if (instant) { setPose(pl, g.stop.x, g.stop.z, g.hdg); pl.pos.y = 3.62; g.target = 1; g.ext = 1; placeBridge(g, apt); l1(pl).target = 1; l1(pl).open = 1; A.onDocked(apt, g, true); }
+  if (instant) { setPose(pl, g.stop.x, g.stop.z, g.hdg); pl.pos.y = pl.T.gearH + 0.02; g.target = 1; g.ext = 1; placeBridge(g, apt); l1(pl).target = 1; l1(pl).open = 1; A.onDocked(apt, g, true); }
 };
 A.onDocked = (apt, g, quiet) => {
   const pl = SKY.Game.plane; const P = SKY.Player; g.target = 1; l1(pl).target = 1;
@@ -357,7 +359,10 @@ A.update = (dt) => {
   for (const apt of A.list) { if (!apt.built) continue; for (const g of apt.gates) if (g.bridge && Math.abs(g.ext - g.target) > 1e-3) { g.ext += clamp(g.target - g.ext, -dt / 2.5, dt / 2.5); placeBridge(g, apt); } }
   const D = A.dock;
   if (pl.crashed) { if (D) { D.gate.target = 0; A.dock = null; } A.taxi = null; A.dep = null; return; }
-  if (!D) {
+  if (pl.follow) { // 4.0 co-op rider: the pilot's game drives the plane; we only mirror the jet bridge + L1 door
+    if (D && hyp(pl.pos.x - D.gate.stop.x, pl.pos.z - D.gate.stop.z) > 3) { D.gate.target = 0; l1(pl).target = 0; A.dock = null; }
+    else if (!D && pl.onGround && pl.speed() < 0.6) { const apt = A.nearest(pl.pos.x, pl.pos.z, 900); if (apt && apt.built) for (const g of apt.gates) { if (g.ai) continue; if (hyp(pl.pos.x - g.stop.x, pl.pos.z - g.stop.z) < 3 && Math.abs(wrap(pl.heading() * Math.PI / 180 - g.hdg)) < 0.3) { A.dock = { apt, gate: g, phase: 'docked', t: 0, from: { x: pl.pos.x, z: pl.pos.z, h: g.hdg } }; A.onDocked(apt, g, true); break; } } }
+  } else if (!D) {
     // docking detection
     if (pl.onGround && pl.speed() < 1.2 && pl.gearDown) {
       const apt = A.nearest(pl.pos.x, pl.pos.z, 900);
@@ -367,7 +372,7 @@ A.update = (dt) => {
     const g = D.gate; D.t += dt;
     if (D.phase === 'snap') { const t = Math.min(1, D.t / 1.4), e = t * t * (3 - 2 * t); setPose(pl, D.from.x + (g.stop.x - D.from.x) * e, D.from.z + (g.stop.z - D.from.z) * e, D.from.h + wrap(g.hdg - D.from.h) * e); pl.throttle = 0; if (t >= 1) { D.phase = 'docked'; D.t = 0; A.onDocked(D.apt, g); } }
     else if (D.phase === 'docked') {
-      setPose(pl, g.stop.x, g.stop.z, g.hdg); if (pl.pos.y > 3.8) pl.pos.y = 3.62;
+      setPose(pl, g.stop.x, g.stop.z, g.hdg); if (pl.pos.y > pl.T.gearH + 0.2) pl.pos.y = pl.T.gearH + 0.02;
       const flying = P.mode === 'pilot' && P.frame === 'plane';
       if (flying && pl.throttle > 0.15 && !pl.ap.on) { pl.throttle = 0; A.startPushback(false); }
       // AI departure: player seated as passenger, pilots in the cockpit

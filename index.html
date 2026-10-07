@@ -14,7 +14,7 @@
 
 <div id="hud">
   <div id="hud-tl">
-    <div class="logo-s">GROK<span>SKY</span><em class="ver">3.5.1</em></div>
+    <div class="logo-s">GROK<span>SKY</span><em class="ver">4.0</em></div>
     <div id="h-city">—</div>
     <div id="h-mode">—</div>
     <div id="h-obj"></div>
@@ -100,8 +100,10 @@
 <div id="title" class="screen show">
   <div class="card">
     <h1 class="logo">GROK<span>SKY</span></h1>
-    <div class="vertag">v3.5.1 · 🚕 Taxi to gate · 🛬 Auto-land · 🏃 Run · 🚗 Cars &amp; cops · 🩺 Doctor mode</div>
+    <div class="vertag">v4.0 · ✈ 6 real planes · 🤝 Fly together · 🌎 London, Rio &amp; Quito · 🚀 Starbase → Moon → Mars</div>
     <p class="tag">Voxel airliner chaos · fly it · break it · cook in it</p>
+    <h3>Your plane</h3>
+    <div id="planes" class="planes"></div>
     <h3>Start city</h3>
     <div id="cities"></div>
     <h3>How do you start?</h3>
@@ -122,6 +124,7 @@
     <div class="grid2">
       <button id="p-resume" class="go">▶ Resume</button>
       <button id="p-map">🗺 Flight map / fast travel</button>
+      <button id="p-plane">✈ Change plane</button>
       <button id="p-online">🌐 Online multiplayer</button>
       <button id="p-pax">➕ Add passenger</button>
       <button id="p-crew">➕ Add crew</button>
@@ -154,6 +157,7 @@
   <div class="card wide">
     <h2>🗺 Flight plan — fast travel</h2>
     <p class="fine">Every city has a working mini airport: 🛬 final approach · 🛫 lined up on the runway · 🅿 parked at a gate (jet bridge connected — walk into the terminal!)</p>
+    <div id="mapplanes" class="planes"></div>
     <canvas id="bigmap" width="660" height="400"></canvas>
     <div id="maplist"></div>
     <button id="m-close">✕ Close</button>
@@ -178,6 +182,11 @@
     <button data-k="C">⌫</button><button data-k="0">0</button><button data-k="E">✔</button>
   </div>
   <button id="kp-x">Close</button>
+</div>
+
+<div id="planePanel" class="panel">
+  <div class="pp-head"><h2>✈ Choose your plane</h2><button id="plane-x">✕</button></div>
+  <div id="pp-planes"></div>
 </div>
 
 <div id="placePanel" class="panel">
@@ -208,7 +217,7 @@
 <div id="scopeov"><div class="ring"></div><div class="tip">🔭 look around · USE / JUMP to step back</div></div>
 
 <div id="help" class="panel">
-  <h2>Controls <small class="hver">v3.5.1</small></h2>
+  <h2>Controls <small class="hver">v4.0</small></h2>
   <div class="cols">
     <div><h3>🖥 Desktop</h3>
       <p><b>On foot:</b> WASD move · mouse look · Space jump · F use/interact · Left click tool · Right click (or R) grab/throw · X drop · 1-3 tools (hands/hammer/crowbar) · V camera · Tab map · Esc pause · P add passenger · M mute</p>

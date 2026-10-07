@@ -215,14 +215,19 @@ const Crowd = SKY.Crowd = {
     const pl = this.plane; this.clear();
     const cock = pl.seats.filter((s) => s.cockpit);
     const cap = this.spawn('captain', cabinStart ? cock[0] : null); if (!cabinStart) { this.list.pop(); cap.leaveSeat(); }
+    if (pl.small) { // 4.0 small planes: no cabin crew, the right seat stays free for a friend, a couple of passengers
+      const free = pl.seats.filter((s) => !s.cockpit); const n = Math.min(nPax, Math.max(0, free.length - (pl.T.id === 'C172' ? 1 : 2)));
+      for (let i = 0; i < n && free.length; i++) { const s = free.splice(Math.floor(Math.random() * free.length), 1)[0]; this.spawn('pax', s); }
+      return;
+    }
     this.spawn('fo', cock[1]);
     const crew1 = this.spawn('crew'); crew1.pos.set(0.4, 0, -11.0); crew1.yaw = Math.PI; crew1.post = new THREE.Vector3(0.4, 0, -11.2); crew1.pose(0, true); crew1.lead = true;
     const crew2 = this.spawn('crew'); crew2.pos.set(0.4, 0, 9.0); crew2.post = new THREE.Vector3(0.5, 0, 9.0); crew2.pose(0, true);
     const free = pl.seats.filter((s) => !s.cockpit);
     for (let i = 0; i < nPax && free.length; i++) { const s = free.splice(Math.floor(Math.random() * free.length), 1)[0]; this.spawn('pax', s); }
   },
-  addPassenger() { const free = this.plane.seats.filter((s) => !s.cockpit && !s.occupant); if (!free.length) { SKY.toast('No free seats!'); return null; } const p = this.spawn('pax', choose(free)); p.talk('Hi! 👋', 2); SKY.toast('➕ ' + p.name + ' boarded', 'good'); return p; },
-  addCrew() { const p = this.spawn('crew'); p.pos.set(0.3, 0, rand(-8, 4)); p.post = p.pos.clone(); p.pose(0, true); p.talk('Reporting for duty!', 2); SKY.toast('➕ ' + p.name + ' joined the crew', 'good'); return p; },
+  addPassenger() { const free = this.plane.seats.filter((s) => !s.cockpit && !s.occupant && !s.netTaken); if (!free.length) { SKY.toast('No free seats!'); return null; } const p = this.spawn('pax', choose(free)); p.talk('Hi! 👋', 2); SKY.toast('➕ ' + p.name + ' boarded', 'good'); return p; },
+  addCrew() { if (this.plane.small) { SKY.toast('No room for cabin crew in the ' + this.plane.T.short); return null; } const p = this.spawn('crew'); p.pos.set(0.3, 0, rand(-8, 4)); p.post = p.pos.clone(); p.pose(0, true); p.talk('Reporting for duty!', 2); SKY.toast('➕ ' + p.name + ' joined the crew', 'good'); return p; },
   pilots() { return this.list.filter((p) => (p.role === 'captain' || p.role === 'fo') && p.frame === 'plane' && p.seat && p.seat.cockpit && p.conscious); },
   // move a plane-frame person to world frame
   toWorld(p) {
@@ -274,7 +279,10 @@ const Crowd = SKY.Crowd = {
     else { p.o2 = Math.min(100, p.o2 + 8 * dt); if (p.ko && p.hp > 0 && p.o2 > 60) { p.ko = false; if (p.state === 'slump' && p.woozy <= 0) p.state = 'sit'; p.talk('Huh?! I\'m awake!', 2); } }
     pl.suction(p.pts[PELV].p, sucV);
     const suc = sucV.length();
+    if (pl.small && p.state === 'rag' && p.ragT > 2 && p.hp > 0 && !p.ko) { const s = p.homeSeat || pl.seats.find((q) => !q.cockpit && !q.occupant); if (s && !s.occupant) { p.sitIn(s); return; } }
     if (p.state === 'sit' || p.state === 'eat' || p.state === 'slump') {
+      if (pl.small && p.seat) p.homeSeat = p.seat;
+      if (pl.small && kickMag < 20 && suc < 40) { p.panic = emergency && p.role === 'pax' ? 1 : 0; p.pose(dt); return; }
       if (kickMag > 7) { p.hurt((kickMag - 6) * 2.5); if (kickMag > 20 || p.seat === null) { p.knock(kick.clone().multiplyScalar(1)); return; } }
       if (suc > 40) { p.knock(sucV.clone().multiplyScalar(0.05)); p.talk('AAAAH!', 2); return; }
       if (p.seat && !pl.grid.solid(p.seat.x, 0.2, p.seat.z)) { p.knock(null); return; } // seat destroyed
