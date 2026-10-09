@@ -445,7 +445,7 @@ const G = SKY.Game = {
     $('v-cab').style.width = Math.round(pl.pressure * 100) + '%'; $('v-cabt').textContent = Math.round(pl.pressure * 100) + '%';
     $('v-int').style.width = integ + '%'; $('v-intt').textContent = integ + '%';
     // toolbar
-    const tb = SKY.TOOLS.map((t, i) => `<span class="${i === P.tool && !P.held ? 'sel' : ''}">${i + 1} ${t.icon} ${t.name}</span>`).join('');
+    const tb = SKY.TOOLS.map((t, i) => { const sel = i === P.tool && !P.held; return `<span class="${sel ? 'sel' : ''}${t.fh ? ' fh' : ''}">${i < 9 ? i + 1 : i === 9 ? 0 : ''} ${t.icon}${sel || !t.fh ? ' ' + t.name : ''}</span>`; }).join('');
     $('toolbar').innerHTML = tb + (P.held ? `<span class="sel">✋ ${P.held.person ? P.held.person.name : P.held.meal ? 'Meal: ' + P.held.meal.emoji + ' ' + P.held.meal.q : P.held.kind}</span>` : '') + (pl.codeFound ? `<span class="code">🔑 ${pl.code}</span>` : '');
     // prompt
     const pr = $('prompt');

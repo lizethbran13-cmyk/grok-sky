@@ -166,13 +166,13 @@ const P = SKY.Player = {
     else if ((this.mode === 'pilot' || (this.mode === 'seat' && this.rideCam)) && this.pilotCam === 'chase') { G.camOrbit.yaw -= I.look.dx * sens; G.camOrbit.pitch = clamp(G.camOrbit.pitch - I.look.dy * sens, -0.9, 0.7); if (I.look.dx || I.look.dy) G.camOrbit.t = 2.5; }
     else { this.yaw -= I.look.dx * sens; this.pitch = clamp(this.pitch - I.look.dy * sens, -1.5, 1.5); }
     I.look.dx = 0; I.look.dy = 0;
-    if (this.mode === 'ride') { this.target = null; this.computeView(); for (let i = 0; i < 3; i++) this.vmTools[i].visible = false; this.vmHeld.visible = false; return; } // 4.0: riding Starship
+    if (this.mode === 'ride') { this.target = null; this.computeView(); for (let i = 0; i < this.vmTools.length; i++) this.vmTools[i].visible = false; this.vmHeld.visible = false; return; } // 4.0: riding Starship
     // 3.5: driving a car (look = orbit the chase camera, handled in updateCamera)
-    if (this.mode === 'drive') { SKY.Cars.drive(dt, I); this.target = null; this.computeView(); this.vitals(dt); for (let i = 0; i < 3; i++) this.vmTools[i].visible = false; this.vmHeld.visible = false; return; }
+    if (this.mode === 'drive') { SKY.Cars.drive(dt, I); this.target = null; this.computeView(); this.vitals(dt); for (let i = 0; i < this.vmTools.length; i++) this.vmTools[i].visible = false; this.vmHeld.visible = false; return; }
     if (this.woozy > 0) { this.yaw += Math.sin(performance.now() * 0.002) * 0.004; }
     // tools
     if (I.edge('tool1')) this.setTool(0); if (I.edge('tool2')) this.setTool(1); if (I.edge('tool3')) this.setTool(2);
-    if (I.edge('toolNext')) this.setTool((this.tool + 1) % 3);
+    if (I.edge('toolNext')) this.setTool((this.tool + 1) % TOOLS.length);
     if (I.edge('cam')) { if (this.mode === 'pilot' || (this.mode === 'seat' && this.rideCam)) { this.pilotCam = this.pilotCam === 'chase' ? 'cockpit' : 'chase'; this.yaw = 0; this.pitch = -0.05; } else this.camMode = this.camMode === 'fp' ? 'tp' : 'fp'; }
     // mode logic
     if (this.mode === 'pilot') this.updatePilot(dt, I);
@@ -190,7 +190,7 @@ const P = SKY.Player = {
     }
     this.vitals(dt);
     // view model
-    for (let i = 0; i < 3; i++) this.vmTools[i].visible = !this.held && this.tool === i && this.mode !== 'pilot' && this.camMode === 'fp' && !(this.mode === 'pilot');
+    for (let i = 0; i < this.vmTools.length; i++) this.vmTools[i].visible = !this.held && this.tool === i && this.mode !== 'pilot' && this.camMode === 'fp' && !(this.mode === 'pilot');
     this.vmHeld.visible = !!this.held && this.camMode === 'fp';
     const sw = Math.sin(this.swing * Math.PI);
     this.vm.rotation.x = -sw * 1.0; this.vm.position.z = -0.55 - sw * 0.15;
@@ -366,6 +366,7 @@ const P = SKY.Player = {
     if (this.toolCD > 0) return;
     const T = TOOLS[this.tool]; this.toolCD = T.cd; this.swing = 1;
     if (this.held) { if (this.held.kind !== 'ext') { this.throwHeld(6); } return; }
+    if (T.use) { T.use(this); return; } // DLC gadgets (Fly High Item Pack)
     const h = this.pick(T.range); if (!h) { SKY.Audio.play('woosh'); return; }
     const pl = this.plane; const plane = this.frame === 'plane';
     if (h.type === 'person') {
