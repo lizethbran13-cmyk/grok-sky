@@ -111,6 +111,7 @@ function myState() {
   const s = { t: 's', ts: Math.round(now()), m: 'title' };
   s.ty = pl.typeId; s.th = Math.round(pl.throttle * 100) / 100; s.fl = pl.flaps || 0; s.og = pl.onGround ? 1 : 0; if (pl.follow) s.fw = 1; // 4.0 plane type + shared-flight data
   s.pp = [r2(pl.pos.x), r2(pl.pos.y), r2(pl.pos.z)]; s.pq = [pl.quat.x, pl.quat.y, pl.quat.z, pl.quat.w].map((v) => Math.round(v * 1e4) / 1e4); s.pv = [r2(pl.vel.x), r2(pl.vel.y), r2(pl.vel.z)]; s.gr = pl.gearDown && !pl.gearBroken ? 1 : 0; s.cr = pl.crashed ? 1 : 0;
+  if (SKY.Disasters && !pl.follow) { const dz = SKY.Disasters.netState(); if (dz) s.dz = dz; } // 4.1: my plane's emergencies (riders mirror them)
   if (G.state === 'title' || !G.stats) return s;
   const car = C && C.cur;
   let p = P.pos, yaw = P.yaw, m;
@@ -171,6 +172,7 @@ function onMsg(d, from) {
   else if (d.t === 'cg') carGone(d.k);
   else if (d.t === 'bye') N.byeFrom[from] = true;
   else if (d.t === 'ss') ssMsg(d, from);
+  else if (d.t === 'dz') { if (SKY.Disasters && (d.to === N.myPid() || d.to === '*')) SKY.Disasters.onNet(d, from); } // 4.1 disasters (rider -> pilot requests, landing scores)
   else if (d.t === 'ev') {
     const n = esc(d.n || 'Your partner');
     if (d.e === 'bust') SKY.toast('🚔 ' + d.n + ' got BUSTED — off to GROK JAIL!', 'warn');
@@ -280,6 +282,7 @@ N.frame = (dt) => {
     if (!r.plane) buildPlane(r, pty);
     r.plane.visible = !(S.s.fw || (N.ride && N.ride.pid === pid)); // a rider's plane is a copy of the leader's: draw it once
     r.plane.position.set(S.pp[0], S.pp[1], S.pp[2]); r.plane.quaternion.fromArray(S.pq); r.plane.userData.gear.visible = !!S.s.gr;
+    if (S.s.dz && SKY.Disasters) SKY.Disasters.remoteFx(r.plane, S.s); // 4.1: their plane trails smoke when an engine is out
     // their body / car
     let anchor = null, extraY = 2.3;
     if (S.p) {
@@ -329,6 +332,9 @@ N.frame = (dt) => {
 // (pl.follow -> Plane.followStep), so both screens show the same flight; each side draws the other person in the cabin.
 const sharedWith = (r, S) => { const me = N.myPid(); if (!S || !S.s) return false; if (S.s.ride === me) return true; if (N.ride && (r.pid === N.ride.pid || S.s.ride === N.ride.pid)) return true; return false; };
 N.boardBlocked = () => !!N.ride;
+// 4.1 disasters: a rider's taps go to the pilot of the shared plane; landing scores go to everyone
+N.dzSend = (msg) => { if (!N.active() || !N.ride) return false; N.room.broadcast(Object.assign({ t: 'dz', to: N.ride.pid, n: N.prof.name }, msg)); return true; };
+N.dzBroadcast = (msg) => { if (!N.active() || N.room.count() < 2) return false; N.room.broadcast(Object.assign({ t: 'dz', to: '*', n: N.prof.name }, msg)); return true; };
 N.riding = () => N.ride;
 N.rideWith = (pid) => {
   const G = SKY.Game, P = SKY.Player, r = N.remotes[pid]; const S = r && (r.cur || sample(r)); if (!S || !S.pp || !S.s) return false;
@@ -356,6 +362,7 @@ N.rideWith = (pid) => {
 N.stopRiding = (silent, park) => {
   const ride = N.ride; if (!ride) return; N.ride = null;
   const G = SKY.Game, pl = G.plane, P = SKY.Player; pl.follow = null; P.rideCam = false; pl.skipKick = 30;
+  if (SKY.Disasters) SKY.Disasters.mirror(null);
   for (const s of pl.seats) s.netTaken = null;
   if (park) { // my plane copy sits right where the leader's plane is: move it to a free gate (or off to the side)
     const apt = SKY.Airport && SKY.Airport.nearest(pl.pos.x, pl.pos.z, 3000);
@@ -384,6 +391,7 @@ N.preStep = () => {
   if ((S.s.ty || 'B737') !== pl.typeId) { leaderLost('✈ ' + r.name + ' switched planes'); return; }
   const f = pl.follow; if (!f) { N.ride = null; return; }
   f.p.fromArray(S.pp); f.q.fromArray(S.pq); f.v.fromArray(S.s.pv || [0, 0, 0]); f.th = S.s.th || 0; f.gr = S.s.gr; f.fl = S.s.fl || 0; f.ok = true;
+  if (SKY.Disasters) SKY.Disasters.mirror(S.s.dz || null); // 4.1: the pilot's emergencies show up on my screen too
   if (P.frame === 'world' && !SKY.Places.cur) N.stopRiding(false, true); // walked out of the door
 };
 // seats taken by the other people in the shared plane (NPCs move out of them)

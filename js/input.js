@@ -7,7 +7,7 @@ const I = SKY.Input = {
   clearEdges() { this.edges = {}; },
   hold(n) { return !!this.holds[n]; },
 };
-const KEYMAP = { KeyF: 'interact', Space: 'jump', Digit1: 'tool1', Digit2: 'tool2', Digit3: 'tool3', Tab: 'map', Escape: 'pause', KeyV: 'cam', KeyG: 'gear', KeyZ: 'flaps', KeyT: 'ap', KeyP: 'addPax', KeyM: 'mute', KeyC: 'cam', KeyH: 'help', KeyR: 'grab', KeyX: 'drop', KeyL: 'autoland', KeyN: 'horn' };
+const KEYMAP = { KeyF: 'interact', Space: 'jump', Digit1: 'tool1', Digit2: 'tool2', Digit3: 'tool3', Tab: 'map', Escape: 'pause', KeyV: 'cam', KeyG: 'gear', KeyZ: 'flaps', KeyT: 'ap', KeyP: 'addPax', KeyM: 'mute', KeyC: 'cam', KeyH: 'help', KeyR: 'grab', KeyX: 'drop', KeyL: 'autoland', KeyN: 'horn', KeyK: 'dz' };
 const HOLDMAP = { ShiftLeft: ['thrUp', 'run'], ShiftRight: ['thrUp', 'run'], ControlLeft: 'thrDown', ControlRight: 'thrDown', KeyQ: 'yawL', KeyE: 'yawR', KeyB: 'brake', Space: 'jump' };
 // a key can drive several holds (Shift = throttle up in the cockpit, RUN on foot)
 function setHold(code, v) { const h = HOLDMAP[code]; if (!h) return; for (const n of [].concat(h)) I.holds[n] = v; }

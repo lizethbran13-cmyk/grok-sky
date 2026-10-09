@@ -206,8 +206,8 @@ const P = SKY.Player = {
     if (I.hold('thrUp')) pl.throttle = clamp(pl.throttle + dt * 0.5, 0, 1);
     if (I.hold('thrDown')) pl.throttle = clamp(pl.throttle - dt * 0.5, 0, 1);
     if (I.edge('gKey') && TG && TG.wantsKey()) I.edges.taxigate = true; // desktop G on the ground = TAXI TO GATE (gear stays down)
-    else if (I.edge('gear')) { if (!pl.gearBroken) { pl.gearDown = !pl.gearDown; SKY.toast('Gear ' + (pl.gearDown ? 'DOWN' : 'UP')); } }
-    if (I.edge('flaps')) { pl.flaps = (pl.flaps + 1) % 3; SKY.toast('Flaps ' + pl.flaps); }
+    else if (I.edge('gear')) { if (pl.dz && pl.dz.gearJam) { SKY.toast('⚠ GEAR WON\'T COME DOWN — tap 🔧 CRANK in the 🚨 checklist', 'bad'); SKY.Audio.play('error'); } else if (!pl.gearBroken) { pl.gearDown = !pl.gearDown; SKY.toast('Gear ' + (pl.gearDown ? 'DOWN' : 'UP')); } }
+    if (I.edge('flaps')) { if (pl.dz && pl.dz.flapsJam) { SKY.toast('⚠ Flaps stuck — no hydraulics', 'bad'); SKY.Audio.play('error'); } else { pl.flaps = (pl.flaps + 1) % 3; SKY.toast('Flaps ' + pl.flaps); } }
     if (I.edge('ap') && !pl.ap.on && pl.onGround && SKY.Airport && SKY.Airport.groundAP(pl)) { /* ground autopilot: auto-taxi / pushback / takeoff */ }
     else if (I.edge('ap')) { if (pl.ap.on && SKY.Airport) SKY.Airport.taxi = null; pl.ap.on = !pl.ap.on; if (pl.ap.on) { pl.ap.alt = Math.max(pl.pos.y, 400); pl.ap.hdg = pl.heading() * Math.PI / 180; pl.ap.dest = null; pl.ap.mode = 'cruise'; pl.ap.by = 'player'; } SKY.toast('Autopilot ' + (pl.ap.on ? 'ON (holding alt/hdg)' : 'OFF')); }
     pl.brake = I.hold('brake');

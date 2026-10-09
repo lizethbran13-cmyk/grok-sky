@@ -18,7 +18,8 @@ const ACH = {
   patient: ['🩺', 'First Patient', 'Treat a patient at an airport clinic'], doctor: ['👩‍⚕️', 'Doctor of the Skies', 'Treat 10 patients'],
   taxigate: ['🚕', 'Follow Me', 'Park at a gate with TAXI TO GATE (3.5.1)'], jailbird: ['🔒', 'Jailbird', 'Get thrown in GROK JAIL'],
   greatescape: ['🥄', 'The Great Escape', 'Dig out of GROK JAIL with a spoon'], modelinmate: ['😇', 'Model Inmate', 'Wait out your GROK JAIL time'],
-  together: ['🌐', 'Better Together', 'Play online with a friend'], formation: ['🛩', 'Formation Flight', 'Fly within 300 m of your online partner']
+  together: ['🌐', 'Better Together', 'Play online with a friend'],
+  disaster: ['🚨', 'Uh-Oh', 'Set off a disaster'], mayday: ['📻', 'Mayday Mayday', 'Declare an emergency to ATC'], hero: ['🦸', 'Emergency Hero', 'Land safely during an emergency'], hero3: ['🏅', 'Miracle Landing', 'Get 3 stars on an emergency landing'], formation: ['🛩', 'Formation Flight', 'Fly within 300 m of your online partner']
 };
 const G = SKY.Game = {
   state: 'title', settings: { invert: false, muted: false }, ach: {}, stats: null, camPos: new THREE.Vector3(), camOrbit: { yaw: 0, pitch: 0, t: 0 }, shakeAmt: 0, testMode: false,
@@ -44,6 +45,7 @@ const G = SKY.Game = {
     try { const t = localStorage.getItem('grokSkyPlane'); if (t && SKY.PlaneTypes[t]) this.planeType = t; } catch (e) { }
     const qt = /[?&]plane=([A-Z0-9]+)/.exec(location.search); if (qt && SKY.PlaneTypes[qt[1]]) this.planeType = qt[1];
     this.buildUI();
+    if (SKY.Disasters) SKY.Disasters.init(); // 4.1 disasters panel / checklists
     if (SKY.Net) SKY.Net.init(); // 3.6 online multiplayer (lobby, ?mp= URL params)
     if (SKY.isTouch) document.body.classList.add('touchdev');
     // idle title scene: plane parked at LA
@@ -75,6 +77,7 @@ const G = SKY.Game = {
     if (SKY.Airport) SKY.Airport.reset();
     SKY.World.ensureCity(city);
     pl.reset({ city, mode: this.startMode === 'pilot' ? 'runway' : 'cruise', type: this.planeType });
+    if (SKY.Disasters) SKY.Disasters.reset();
     SKY.Crowd.populate(SKY.lowSpec ? 14 : 26, this.startMode !== 'pilot');
     SKY.Props.populate();
     SKY.Player.reset(this.startMode);
@@ -95,6 +98,7 @@ const G = SKY.Game = {
   fastTravel(id, mode) {
     const city = SKY.World.city(id); const pl = this.plane; const P = SKY.Player;
     if (SKY.Net && SKY.Net.ride) SKY.Net.stopRiding(true); // 4.0: travelling elsewhere ends a shared flight
+    if (SKY.Disasters) SKY.Disasters.reset();
     const A = SKY.Airport;
     if (pl.typeId !== this.planeType && !(this.state === 'over' || pl.crashed || P.dead)) { this.rebuildPlane(this.planeType, city, mode); this.closeMap(); return; }
     if (this.state === 'over' || pl.crashed || pl.integrity < 0.5 || P.dead) { this.startMode = 'pilot'; this.start(id, 'pilot'); if (mode === 'approach') { pl.place(city, 'approach'); this.wasAirborne = true; } else if (mode === 'gate' && A) A.placeAtGate(city); this.closeMap(); return; }
@@ -129,6 +133,7 @@ const G = SKY.Game = {
     SKY.Props.list = SKY.Props.list.filter((p) => { if (p.frame === 'plane') { if (p.mesh.parent) p.mesh.parent.remove(p.mesh); return false; } return true; });
     this.planeType = type;
     pl.reset({ city, mode: mode === 'approach' ? 'approach' : 'runway', type });
+    if (SKY.Disasters) SKY.Disasters.reset();
     const keep = SKY.Crowd.list; SKY.Crowd.list = []; SKY.Crowd.populate(pl.small ? 1 : (SKY.lowSpec ? 14 : 26), false); SKY.Crowd.list = SKY.Crowd.list.concat(keep);
     SKY.Props.populate();
     const hp = P.hp; P.reset('pilot'); P.hp = hp;
@@ -174,6 +179,7 @@ const G = SKY.Game = {
     if (I.edge('mute')) { this.settings.muted = !this.settings.muted; SKY.Audio.mute(this.settings.muted); }
     if (this.state === 'title') { this.titleUpdate(dt); return; }
     if (this.state !== 'play') { if (I.edge('pause') && this.state === 'paused') this.resume(); if (I.edge('map') && this.ui === 'map') this.closeMap(); return; }
+    if (I.edge('dz') && SKY.Disasters) SKY.Disasters.togglePanel(); // 4.1 🚨 disasters panel (K)
     if (I.edge('pause')) { if (this.ui) this.closeUI(); else { this.pause(); return; } }
     if (I.edge('map')) { this.openMap(); return; }
     if (I.edge('addPax')) SKY.Crowd.addPassenger();
@@ -210,6 +216,7 @@ const G = SKY.Game = {
     if (SKY.Airport) SKY.Airport.update(dt);
     if (TG && TG.active) TG.post(dt);
     pl.updateCabin(dt, this.fx);
+    if (SKY.Disasters) SKY.Disasters.update(dt); // 4.1 failures, checklists, meteors, lightning, safe-landing score
     if (pl.lastDetach) for (const reg of pl.lastDetach) this.transferRegion(reg);
     // entities
     const ctx = { camPos: this.camPos, wanderers: 0, playerLocal: P.frame === 'plane' && P.mode === 'foot' ? P.pos : null, playerInSeat: (s) => P.seat === s, playerBody: (wp, ww) => this.renderPlayerBody(wp, ww) };
@@ -335,7 +342,7 @@ const G = SKY.Game = {
     else if (P.mode === 'pilot') wind = clamp(spd / 260, 0, 0.45);
     A.setWind(wind);
     const pilotsDown = !SKY.Crowd.pilots().length && P.mode !== 'pilot' && !pl.ap.on && !pl.onGround && !pl.follow;
-    A.setAlarm((pl.decomp && pl.dP > 0.002) || pl.stall || (pl.fires.some((f) => !f.ext)) || (P.mode === 'pilot' && pl.altitude() < 150 && pl.vel.y < -12 && !pl.crashed) || (pilotsDown && !pl.crashed) || (P.o2 < 30 && P.frame === 'plane'));
+    A.setAlarm((pl.decomp && pl.dP > 0.002) || pl.stall || (pl.fires.some((f) => !f.ext)) || (P.mode === 'pilot' && pl.altitude() < 150 && pl.vel.y < -12 && !pl.crashed) || (pilotsDown && !pl.crashed) || (P.o2 < 30 && P.frame === 'plane') || (SKY.Disasters && SKY.Disasters.alarm() && !pl.crashed));
     A.tick(dt);
   },
   // -------------------------------------------------------------- events from systems
@@ -382,7 +389,7 @@ const G = SKY.Game = {
     if (this.state === 'title') { this.titleCam(dt); }
     // sky tint with altitude
     const a = clamp(this.camPos.y / 2600, 0, 1);
-    if (!(SKY.Starship && SKY.Starship.sky(this))) { this.scene.background.setRGB(0.62 - a * 0.25, 0.83 - a * 0.18, 1.0 - a * 0.05); this.scene.fog.color.copy(this.scene.background); }
+    if (!(SKY.Starship && SKY.Starship.sky(this))) { this.scene.background.setRGB(0.62 - a * 0.25, 0.83 - a * 0.18, 1.0 - a * 0.05); this.scene.fog.color.copy(this.scene.background); if (SKY.Disasters && this.state !== 'title') SKY.Disasters.sky(this.scene); }
     // labels
     SKY.Labels.begin();
     if (this.state === 'play' || this.state === 'over') {
@@ -457,7 +464,10 @@ const G = SKY.Game = {
     if (pl.turb.on > 0) al.push('🔔 TURBULENCE');
     if (pl.oven.state === 'cooking') al.push('🍳 Oven ' + pl.oven.t.toFixed(1) + 's ' + (pl.oven.t < 7 ? '(cooking...)' : pl.oven.t <= 10.5 ? '(PERFECT — take it out!)' : '(BURNING!)'));
     if (P.frame === 'world' && !P.grounded && !P.chute && P.altAboveGround() > 25) al.push('🪂 PRESS JUMP FOR PARACHUTE');
+    const DZ = SKY.Disasters;
+    if (DZ) { for (const a of DZ.alerts()) al.unshift(a); if (al.length > 4) al.length = 4; if (DZ.elecOut()) for (const id of ['i-alt', 'i-spd', 'i-vs', 'i-hdg']) $(id).textContent = Math.random() < 0.15 ? '8̶8̶8̶' : '---'; }
     $('alerts').innerHTML = al.map((a) => `<div>${a}</div>`).join('');
+    if (DZ) DZ.hud();
     $('vignette').style.opacity = P.o2 < 50 ? (1 - P.o2 / 50) * 0.85 : 0;
     $('woozy').style.opacity = P.woozy > 0 ? 0.25 : 0;
     document.body.classList.toggle('pilot', P.mode === 'pilot');
@@ -544,6 +554,7 @@ const G = SKY.Game = {
     const titles = { crash: pl.crashKind === 'ditched' ? '🌊 DITCHED!' : '💥 CRASHED!', hypoxia: '😵 YOU PASSED OUT', splat: '🪨 YOU HIT THE GROUND', impact: '💫 KNOCKED OUT', fire: '🔥 TOO HOT!', debris: '🧱 BONKED BY DEBRIS', crash2: '💥 CRASHED' };
     const subs = { crash: P.dead ? 'You did not walk away from this one.' : 'You survived! Explore the wreckage, or try again.', hypoxia: 'Not enough oxygen. Next time grab a mask or get below 10,000 ft.', splat: 'Gravity always wins. (Press JUMP to open your parachute!)', impact: 'You got knocked out cold. Cartoon stars everywhere.', fire: 'Fire extinguishers exist for a reason.', debris: 'Watch out for falling buildings.' };
     $('o-title').textContent = titles[reason] || '💫 GAME OVER'; $('o-sub').textContent = subs[reason] || '';
+    if (reason === 'crash' && SKY.Disasters && SKY.Disasters.crashCartoon) { $('o-title').textContent = '💫 CARTOON CRASH!'; $('o-sub').textContent = 'BOING! Everyone bounces out with cartoon stars and a band-aid 🩹 — tap Retry for a shiny new plane and try that emergency again!'; }
     const pax = SKY.Crowd.list; const hurt = pax.filter((p) => p.hp < 100).length, ko = pax.filter((p) => p.ko).length;
     $('o-stats').innerHTML = `Flight time <b>${Math.floor(st.time / 60)}:${String(Math.floor(st.time % 60)).padStart(2, '0')}</b> · Cities <b>${st.cities.size}</b> · Plane integrity <b>${Math.round(pl.integrity * 100)}%</b><br>People hurt <b>${hurt}</b> · Knocked out <b>${ko}</b> · Sucked out <b>${st.ejected}</b> · Spoiled meals <b>${st.spoiled}</b>`;
     $('o-explore').style.display = reason === 'crash' && !P.dead ? '' : 'none';
@@ -569,7 +580,7 @@ const G = SKY.Game = {
     box.innerHTML = h; box.querySelectorAll('[data-place]').forEach((b) => { b.onclick = () => PLp.travel(b.dataset.place); });
   },
   closeMap() { if (this.ui === 'map') { this.ui = null; this.state = (this.prevState === 'over' ? 'over' : 'play'); if (this.state === 'over' && this.plane.crashed === false) this.state = 'play'; $('mapScreen').classList.remove('show'); if (this.state === 'play') { $('over').classList.remove('show'); if (!SKY.isTouch && !this.testMode) this.lockPointer(); } } },
-  closeUI() { if (this.ui === 'jail') return; if (this.ui === 'map') return this.closeMap(); if (this.ui === 'planes') return this.closePlanePick(); this.ui = null; $('cook').classList.remove('show'); $('keypad').classList.remove('show'); if (SKY.Mini) SKY.Mini.close(); if (this.state === 'play' && !SKY.isTouch && !this.testMode) this.lockPointer(); },
+  closeUI() { if (this.ui === 'jail') return; if (this.ui === 'map') return this.closeMap(); if (this.ui === 'planes') return this.closePlanePick(); this.ui = null; $('cook').classList.remove('show'); if ($('dzPanel')) { $('dzPanel').classList.remove('show'); $('dzScore').classList.remove('show'); } $('keypad').classList.remove('show'); if (SKY.Mini) SKY.Mini.close(); if (this.state === 'play' && !SKY.isTouch && !this.testMode) this.lockPointer(); },
   openCook() {
     this.ui = 'cook'; this.unlockPointer(); const box = $('cook-ings'); box.innerHTML = '';
     const pool = SKY.INGREDIENTS.slice(); const good = pool.filter((i) => !i.bad), bad = pool.filter((i) => i.bad);
@@ -641,7 +652,7 @@ const G = SKY.Game = {
     $('t-help').onclick = () => $('help').classList.add('show');
     addEventListener('keydown', (e) => { if (this.ui === 'keypad') { if (/^Digit\d$/.test(e.code)) this.keypadPress(e.code.slice(5)); if (e.code === 'Enter') this.keypadPress('E'); if (e.code === 'Backspace') this.keypadPress('C'); } if (this.ui === 'cook' && e.code === 'Enter' && this.cookSel && this.cookSel.length) this.startCooking(); });
   },
-  toTitle() { if (SKY.Places) SKY.Places.reset(); if (SKY.Cars) SKY.Cars.reset(); if (SKY.AutoLand) SKY.AutoLand.reset(); if (SKY.TaxiGate) SKY.TaxiGate.reset(); if (SKY.Jail) SKY.Jail.reset(); if (SKY.Audio.setSiren) SKY.Audio.setSiren(0); document.body.classList.remove('drive', 'foot', 'running'); this.state = 'title'; this.hideScreens(); this.closeUI(); $('title').classList.add('show'); document.body.classList.remove('playing', 'pilot'); this.unlockPointer(); if (SKY.Net && SKY.Net.stopRiding) SKY.Net.stopRiding(true); this.plane.reset({ city: SKY.World.city('LA'), mode: 'cruise', type: this.planeType }); SKY.Crowd.populate(0, true); SKY.Props.clear(); SKY.Audio.setAlarm(false); },
+  toTitle() { if (SKY.Disasters) SKY.Disasters.reset(); if (SKY.Places) SKY.Places.reset(); if (SKY.Cars) SKY.Cars.reset(); if (SKY.AutoLand) SKY.AutoLand.reset(); if (SKY.TaxiGate) SKY.TaxiGate.reset(); if (SKY.Jail) SKY.Jail.reset(); if (SKY.Audio.setSiren) SKY.Audio.setSiren(0); document.body.classList.remove('drive', 'foot', 'running'); this.state = 'title'; this.hideScreens(); this.closeUI(); $('title').classList.add('show'); document.body.classList.remove('playing', 'pilot'); this.unlockPointer(); if (SKY.Net && SKY.Net.stopRiding) SKY.Net.stopRiding(true); this.plane.reset({ city: SKY.World.city('LA'), mode: 'cruise', type: this.planeType }); SKY.Crowd.populate(0, true); SKY.Props.clear(); SKY.Audio.setAlarm(false); },
   // -------------------------------------------------------------- test hooks
   step(n, inp) {
     inp = inp || {};

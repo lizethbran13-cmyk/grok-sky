@@ -301,6 +301,7 @@ class Plane {
     this.pos = this.group.position; this.quat = this.group.quaternion;
     this.vel = new THREE.Vector3(); this.w = new THREE.Vector3(); this.prevVel = new THREE.Vector3();
     this.acc = new THREE.Vector3(); this.gLocal = new THREE.Vector3(0, -9.81, 0); this.kick = new THREE.Vector3();
+    this.dz = { thr: [1, 1], brake: 1, ctl: 1, pack: false, gearJam: false, flapsJam: false, asymK: 1, flame: [] };
     this.buildMeshes(); this.setType('B737');
   }
   // ------------------------------------------------------------------ build
@@ -378,6 +379,7 @@ class Plane {
     this.ap = { on: false, mode: 'off', alt: 2400, hdg: 0, dest: null, by: null, spd: 200 }; this.alphaFloor = 0; this.propA = 0;
     this.pressure = 1; this.decomp = false; this.masksDown = false; this.maskT = 0; this.openings = []; this.leakArea = 0;
     this.fires = []; this.turb = { t: rand(40, 80), on: 0, str: 0 }; this.belt = false;
+    this.dz = { thr: [1, 1], brake: 1, ctl: 1, pack: false, gearJam: false, flapsJam: false, asymK: 1, flame: [] }; // 4.1 disasters
     this.cockpitDoor = { hp: 100, locked: true, open: 0, target: 0, broken: false, lockout: 0, cubes: 40, autoClose: 0 };
     this.cdMesh.count = 40; this.cdGroup.visible = !this.small; this.cdGroup.rotation.y = 0;
     if (this.small) { this.cockpitDoor.broken = true; this.cockpitDoor.locked = false; this.cockpitDoor.open = 1; }
@@ -530,6 +532,7 @@ class Plane {
     if (this.follow) { this.followStep(dt); return; }
     this.partEff();
     if (TT.fixedGear) this.gearDown = true;
+    const DZ = this.dz; if (DZ.gearJam) this.gearDown = false; // 4.1 disasters: gear stuck up until cranked down
     if (this.prop) { this.propA += dt * (8 + this.throttle * 60) * (this.crashed ? 0 : 1); this.prop.rotation.z = this.propA; }
     const { f, u, r } = this.axes();
     const spd = this.vel.length();
@@ -555,7 +558,7 @@ class Plane {
       F.addScaledVector(vdir, -q * cd);
       F.addScaledVector(r, -this.vel.dot(r) * TT.qk * rhoF * spd * 0.25);
     }
-    const engE = (this.engEff[0] + this.engEff[1]) / 2;
+    const engE = (this.engEff[0] * DZ.thr[0] + this.engEff[1] * DZ.thr[1]) / 2;
     const thrust = this.throttle * TT.thrust * engE * (0.55 + 0.45 * rhoF) * (this.crashed ? 0 : 1);
     F.addScaledVector(f, thrust);
     // turbulence
@@ -566,7 +569,7 @@ class Plane {
     this.vel.addScaledVector(F, dt / this.mass);
     // ---- rotation control (local rates) ----
     const ctrl = clamp(spd / TT.vref, 0, 1.3) * Math.sqrt(rhoF);
-    let pitchRate = ctl.pitch * TT.rates[0] * this.hsEff, rollRate = -ctl.roll * TT.rates[1] * Math.min(this.wingEff[0], this.wingEff[1]) ** 0.5; const yawRate = -ctl.yaw * TT.rates[2] * this.vsEff;
+    let pitchRate = ctl.pitch * TT.rates[0] * this.hsEff * DZ.ctl, rollRate = -ctl.roll * TT.rates[1] * Math.min(this.wingEff[0], this.wingEff[1]) ** 0.5 * DZ.ctl; const yawRate = -ctl.yaw * TT.rates[2] * this.vsEff * DZ.ctl;
     if (TT.fbw && !this.crashed && !this.onGround) { // Airbus-style protections: bank 67° max (back to 33° hands-off), pitch +30/-15°, ALPHA FLOOR
       const bank = Math.asin(clamp(-r.y, -1, 1)), pit = Math.asin(clamp(f.y, -1, 1));
       if (Math.abs(ctl.roll || 0) < 0.1 && Math.abs(bank) > 0.58) rollRate = Math.sign(bank) * 0.18;
@@ -588,7 +591,7 @@ class Plane {
       const asym = (this.wingEff[1] - this.wingEff[0]) * q * 0.55 * Math.abs(cl) / (this.mass * 9.81) * 2.5;
       w.z += asym * dt;
       // engine asymmetry yaw
-      w.y += (this.engEff[1] - this.engEff[0]) * this.throttle * 0.25 * dt;
+      w.y += (this.engEff[1] * DZ.thr[1] - this.engEff[0] * DZ.thr[0]) * this.throttle * 0.25 * dt * DZ.asymK;
       if (this.stall) { w.x -= 0.7 * dt; w.z += (Math.random() - 0.5) * 0.8 * dt; }
     }
     w.multiplyScalar(1 - (this.crashed ? 0.2 : 0.3) * dt);
@@ -658,7 +661,7 @@ class Plane {
         if (P.gear) {
           const fh = tmp.copy(f); fh.y = 0; fh.normalize();
           const vf = vp.dot(fh); const side = vp.clone().addScaledVector(fh, -vf);
-          const brake = (this.brake || this.throttle < 0.04) ? 0.35 : 0.012;
+          const brake = (this.brake || this.throttle < 0.04) ? Math.max(0.012, 0.35 * this.dz.brake) : 0.012;
           const jf = Math.min(Math.abs(vf) / effMass(r, fh), brake * j) * Math.sign(vf);
           applyImp(fh.clone().multiplyScalar(-jf), r);
           const sl = side.length(); if (sl > 1e-4) { side.divideScalar(sl); const js = Math.min(sl / effMass(r, side), 0.9 * j); applyImp(side.multiplyScalar(-js), r); }
@@ -763,9 +766,9 @@ class Plane {
     const amb = ft < 9000 ? 1 : clamp(1 - (ft - 9000) / 31000 * 0.75, 0.22, 1);
     this.ambient = amb;
     const prev = this.pressure;
-    if (this.leakArea > 0.01) this.pressure += (amb - this.pressure) * Math.min(1, this.leakArea * 0.35 * dt);
+    if (this.leakArea > 0.01 || this.dz.pack) this.pressure += (amb - this.pressure) * Math.min(1, Math.max(this.leakArea * 0.35, this.dz.pack ? 0.3 : 0) * dt); // 4.1: pressurisation failure
     else this.pressure += (1 - this.pressure) * Math.min(1, 0.08 * dt);
-    if (amb >= 0.99 && this.pressure < 1) this.pressure = Math.min(1, this.pressure + 0.04 * dt);
+    if (amb >= 0.99 && this.pressure < 1 && !this.dz.pack) this.pressure = Math.min(1, this.pressure + 0.04 * dt);
     this.dP = Math.max(0, (prev - this.pressure) / dt); // drop rate
     const wasDecomp = this.decomp;
     this.decomp = this.pressure < 0.78;

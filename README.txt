@@ -1,4 +1,4 @@
-GROK SKY - a voxel airliner sandbox (v4.0)
+GROK SKY - a voxel airliner sandbox (v4.1)
 ==========================================
 
 GROK SKY is a fully destructible voxel airliner sandbox that runs in a web
@@ -9,6 +9,21 @@ the real one and each with a small working airport. You can also walk the
 cabin, cook in the galley, open a door at 25,000 ft, or try to get into the
 locked cockpit. Content is cartoony: injuries are ragdoll flops and health bars,
 and spoiled food only makes people woozy.
+
+NEW IN 4.1: DISASTERS
+---------------------
+Tap the red 🚨 button (or press K) to open the Disasters panel and set off an
+engine fire, engine blowout, landing gear failure, brake failure, cabin
+depressurization (oxygen masks drop), hydraulic failure or electrical failure,
+or the fantasy ones: a ☄️ meteor shower that dents the plane and a 🌩 lightning
+storm whose strikes you can't dodge. Random disasters can be Off, Rare, Normal
+or CHAOS. Each emergency has a checklist (shut down the engine, fire
+extinguisher, crank the gear down, alternate brakes, masks on + descend below
+10,000 ft, backup hydraulics, start the APU), alarms and HUD warnings, a
+📻 MAYDAY call that ATC answers with the nearest runway, and a safe-landing
+score with stars (best score is saved). A crash during a disaster is a cartoon
+crash: tap Retry. Online, the pilot's emergencies show on the riders' screens
+and riders can tap checklist steps or trigger disasters too.
 
 HOW TO RUN
 ----------
