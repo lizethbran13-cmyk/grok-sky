@@ -25,6 +25,34 @@ score with stars (best score is saved). A crash during a disaster is a cartoon
 crash: tap Retry. Online, the pilot's emergencies show on the riders' screens
 and riders can tap checklist steps or trigger disasters too.
 
+DLC: FLY HIGH ITEM PACK (Mini Pack, 25 tickets)
+-----------------------------------------------
+Unlock it at the DLC Machine 3000 in the Grok Arcade. It turns on right away,
+no reload needed (localStorage key grokDLC.sky.fly_high_item_pack). Without it,
+the 📱 PHONE button shows a lock, the ZipDrop app shows a teaser, and the title
+screen shows a "NEW DLC" badge.
+- 📱 PHONE (button, or O on a keyboard): a GrokPhone with three apps:
+  ⚡ ZipDrop, 🧰 My Gadgets and 🪙 Wallet.
+- ⚡ ZipDrop is a super-quick delivery app. Pay with coins and a purple drone
+  flies your order to you in about 3 seconds. It works on the ground and even
+  inside the cabin at 30,000 ft (a mini drone flies in). If you're seated,
+  piloting or driving, the order is handed to your seat.
+- 8 gadgets (smooth 3D models, kid-friendly cartoon effects, no gore):
+  🪓 Turbo Axe        chops through walls, buildings and the cabin in one swing
+  ❄️ Freeze Ray       freezes people, cars and fires in ice for 8 s; ices walls
+  🫧 Bubble Blaster   traps people in a bubble that floats up and drifts down
+  🪩 Party Ray        starts a rainbow dance party
+  🧲 Mega Magnet      hold to pull bags, carts and floppy people toward you
+  💨 Leaf Blower 3000 hold for a gust that blows people over and props away
+  🎉 Confetti Bomb    toss it: KA-POOF, a hole in anything plus confetti
+  🥾 Rocket Boots     equip, then hold JUMP to fly (no fall damage)
+  Gadgets join the tool bar after the 3 base tools. Use keys 4-9 and 0, or
+  🔧 to cycle. Bought gadgets are saved.
+- Snacks & stuff on ZipDrop: hot pizza, sprinkle donut, rocket juice (speed
+  boost), a fire extinguisher delivered to your hands, and a mystery box.
+- Co-op: if the host owns the pack, guests in that room can buy and use the
+  gadgets too.
+
 HOW TO RUN
 ----------
 Everything is static files with relative paths: no build, no CDN, and three.js
@@ -52,6 +80,7 @@ js/cities3.js  4.0: London, Rio de Janeiro, Quito, Starbase (Mechazilla tower) a
 js/places3.js  4.0: the places of London, Rio, Quito, Starbase and the Moon / Mars habitats
 js/starship.js 4.0: Starship + Super Heavy models, the launch / hot staging / booster catch / space / landing
                ride between Starbase, the Moon and Mars, low gravity and space skies
+js/flyhigh.js  DLC Fly High Item Pack: 📱 phone, ⚡ ZipDrop drone delivery, 8 gadgets (gated by the arcade DLC key)
 js/net.js      online multiplayer (2-3 players): state sync, avatars and name tags, shared police,
                4.0 fly together in one plane, join a friend in a place, ride Starship together
 js/airport.js  the 7 mini airports: runways/taxiways/apron markings, terminal with gates and jet bridges,

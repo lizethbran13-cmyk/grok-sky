@@ -205,7 +205,8 @@ function holdPerson(p, dt) {
   if (p.fhIce > 0) { p.fhIce -= dt; if (p.fhIce <= 0) { p.fhIce = 0; p.talk(choose(['Brrr! 🥶', '…that was COLD', 'Achoo!']), 2); } return true; }
   if (p.fhBub > 0) {
     p.fhBub -= dt; const t = BUB_T - p.fhBub;
-    const target = p.fhBub > 1.6 ? Math.min(2.4, t * 1.4) : Math.max(0, p.fhBub / 1.6 * 2.4);
+    const top = p.frame === 'plane' ? 0.75 : 2.4; // low cabin ceiling
+    const target = p.fhBub > 1.6 ? Math.min(top, t * 1.4) : Math.max(0, p.fhBub / 1.6 * top);
     const dy = target - (p.fhBubY || 0); p.fhBubY = target;
     const sx = Math.sin(t * 2.1) * 0.006;
     const up = p.frame === 'plane' ? _v.set(0, 1, 0) : _v.set(0, 1, 0);
@@ -233,6 +234,7 @@ PROTO.render = function (w) {
 // ice shells & bubbles (smooth meshes wrapped around the ragdoll)
 const shellGeo = new THREE.IcosahedronGeometry(1, 1), bubGeo = sph(1, 28, 20);
 const iceMat = new THREE.MeshPhongMaterial({ color: 0xaeeaff, transparent: true, opacity: 0.5, shininess: 150, specular: 0xffffff, flatShading: true, depthWrite: false });
+const carIce = new THREE.MeshPhongMaterial({ color: 0x9fe6ff, transparent: true, opacity: 0.62, shininess: 150, specular: 0xffffff, flatShading: true, depthWrite: false, emissive: 0x1a5a7a });
 const shells = [], bubbles = [];
 function poolMesh(pool, i, geo, mat) { if (!pool[i]) { pool[i] = new THREE.Mesh(geo, mat); pool[i].renderOrder = 3; } return pool[i]; }
 function placeStatus() {
@@ -258,7 +260,7 @@ function freezeCar(car) {
   if (!car || car === SKY.Cars.cur) return false;
   let f = frozenCars.get(car);
   if (!f) {
-    const T = car.T || {}; const m = new THREE.Mesh(shellGeo, iceMat); m.renderOrder = 3; SKY.Game.scene.add(m);
+    const T = car.T || {}; const m = new THREE.Mesh(shellGeo, carIce); m.renderOrder = 3; SKY.Game.scene.add(m);
     m.scale.set((T.W || 2) * 0.62, ((T.h1 || 0.7) + (T.h2 || 0.6)) * 0.62, (T.L || 4) * 0.6);
     f = { m, pos: car.pos.clone(), yaw: car.yaw }; frozenCars.set(car, f);
   }
