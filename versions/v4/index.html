@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<script>/* Grok Arcade Hall of Game Records: archived old version 4.0 of grok-sky. Saves are kept separate from the newest version. */
+(function(){var P='grokOldVersion.grok-sky.v4:';try{var S=Storage.prototype,g=S.getItem,s=S.setItem,r=S.removeItem;function L(t){try{return t===window.localStorage;}catch(e){return false;}}
+S.getItem=function(k){return g.call(this,L(this)?P+k:k);};S.setItem=function(k,v){return s.call(this,L(this)?P+k:k,v);};S.removeItem=function(k){return r.call(this,L(this)?P+k:k);};}catch(e){}
+window.GROK_OLD_VERSION={repo:'grok-sky',label:'v4',ver:'4.0',prefix:P};
+function badge(){try{var d=document.createElement('div');d.id='grokOldVerBadge';d.setAttribute('style','position:fixed;left:50%;top:6px;transform:translateX(-50%);z-index:2147483647;background:rgba(20,10,43,.92);color:#ffe14d;font:bold 12px/1.3 system-ui,sans-serif;padding:6px 12px;border-radius:14px;border:2px solid #ff4fd8;box-shadow:0 2px 10px rgba(0,0,0,.4);pointer-events:none;transition:opacity .8s;text-align:center;max-width:90vw');d.textContent='\uD83D\uDCFC OLD VERSION 4.0 \u00b7 from the Hall of Game Records \u00b7 separate save';document.body.appendChild(d);setTimeout(function(){d.style.opacity='0';},6000);setTimeout(function(){if(d.parentNode)d.parentNode.removeChild(d);},7000);}catch(e){}}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',badge);else badge();})();</script>
+<meta name="robots" content="noindex">
+
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#0b1a33">
+<title>GROK SKY — Voxel Airliner Chaos</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 16 16%22%3E%3Ctext y=%2214%22 font-size=%2214%22%3E%E2%9C%88%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="game"></div>
+
+<div id="hud">
+  <div id="hud-tl">
+    <div class="logo-s">GROK<span>SKY</span><em class="ver">4.0</em></div>
+    <div id="h-city">—</div>
+    <div id="h-mode">—</div>
+    <div id="h-obj"></div>
+  </div>
+  <div id="compass">N 000°</div>
+  <div id="mpbadge"></div>
+  <div id="mptags"></div>
+  <div id="instr">
+    <div class="row"><label>ALT</label><span id="i-alt">0 ft</span></div>
+    <div class="row"><label>SPD</label><span id="i-spd">0 kts</span></div>
+    <div class="row"><label>V/S</label><span id="i-vs">0</span></div>
+    <div class="row"><label>HDG</label><span id="i-hdg">000°</span></div>
+    <div class="row thr"><label>THR</label><div class="thrbar"><i id="i-thr"></i></div><span id="i-thrv">0%</span></div>
+    <div id="i-flags"></div>
+  </div>
+  <canvas id="minimap" width="150" height="150"></canvas>
+  <div id="vitals">
+    <div class="bar"><label>❤️ HP</label><div><i id="v-hp" class="hp"></i></div><span id="v-hpt">100</span></div>
+    <div class="bar"><label>🫁 O₂</label><div><i id="v-o2" class="o2"></i></div><span id="v-o2t">100</span></div>
+    <div class="bar planebar"><label>🎈 CABIN</label><div><i id="v-cab" class="cab"></i></div><span id="v-cabt">100%</span></div>
+    <div class="bar planebar"><label>✈️ PLANE</label><div><i id="v-int" class="int"></i></div><span id="v-intt">100%</span></div>
+  </div>
+  <div id="toolbar"></div>
+  <div id="cross"></div>
+  <div id="prompt"></div>
+  <div id="wanted"></div>
+  <div id="alerts"></div>
+  <div id="toasts"></div>
+  <div id="labels"></div>
+  <div id="vignette"></div>
+  <div id="woozy"></div>
+  <div id="flash"></div>
+  <!-- 3.5: auto-land banner/button, wanted stars, car HUD, break-in bar, stamina, busted overlay -->
+  <div id="carbar"></div>
+  <div id="carspd"></div>
+  <div id="stamina"><i></i></div>
+  <button id="carexit" class="deskonly">🚪<small>EXIT</small></button>
+</div>
+<button id="albtn"></button>
+<button id="tgbtn"></button>
+<div id="busted"><div class="bcard"><div class="cuffs">🔗<i>✨</i><i>✨</i><i>✨</i></div><div class="btitle">🚔 BUSTED!</div><div class="bsub"></div></div></div>
+<div id="jail" class="panel">
+  <div class="jhead"><h2>🔒 GROK JAIL</h2><span id="jail-sub"></span></div>
+  <canvas id="jail-cv"></canvas>
+  <div id="jail-timer"></div>
+  <div id="jail-msg"></div>
+  <div id="jail-acts"></div>
+</div>
+
+<div id="touch">
+  <div id="joyzone"><div id="joybase"><div id="joyknob"></div></div></div>
+  <div id="lookzone"></div>
+  <div id="tbtns">
+    <button class="tb big" data-act="action" data-hold="action">💥<small>ACTION</small></button>
+    <button class="tb" data-act="interact">✋<small>USE</small></button>
+    <button class="tb" data-act="grab">🫳<small>GRAB</small></button>
+    <button class="tb" data-act="jump" data-hold="jump">⤒<small>JUMP</small></button>
+  </div>
+  <div id="ttop">
+    <button class="ts" data-act="toolNext">🔧</button>
+    <button class="ts" data-act="cam">🎥</button>
+    <button class="ts" data-act="map">🗺</button>
+    <button class="ts" data-act="pause">⏸</button>
+  </div>
+  <div id="tpilot">
+    <button class="ts" data-act="gear">GEAR</button>
+    <button class="ts" data-act="flaps">FLAP</button>
+    <button class="ts" data-act="ap">AP</button>
+    <button class="ts" data-act="brakeE" data-hold="brake">BRK</button>
+    <button class="ts" data-act="yawLE" data-hold="yawL">◀</button>
+    <button class="ts" data-act="yawRE" data-hold="yawR">▶</button>
+  </div>
+  <div id="thrtrack"><div id="thrknob">THR</div></div>
+  <button id="trun" class="tb" data-act="runToggle" data-hold="run">🏃<small>RUN</small></button>
+  <div id="tdrive">
+    <button class="tb gas" data-act="gasE" data-hold="gas">⏫<small>GAS</small></button>
+    <button class="tb brk" data-act="brakeE2" data-hold="brake">⏬<small>BRAKE</small></button>
+    <button class="tb" id="tcarexit" data-act="interact">🚪<small>EXIT</small></button>
+    <button class="tb" data-act="horn">📯<small>HORN</small></button>
+  </div>
+</div>
+
+<div id="title" class="screen show">
+  <div class="card">
+    <h1 class="logo">GROK<span>SKY</span></h1>
+    <div class="vertag">v4.0 · ✈ 6 real planes · 🤝 Fly together · 🌎 London, Rio &amp; Quito · 🚀 Starbase → Moon → Mars</div>
+    <p class="tag">Voxel airliner chaos · fly it · break it · cook in it</p>
+    <h3>Your plane</h3>
+    <div id="planes" class="planes"></div>
+    <h3>Start city</h3>
+    <div id="cities"></div>
+    <h3>How do you start?</h3>
+    <div class="modes">
+      <button class="mode sel" data-mode="pilot">🧑‍✈️ <b>Captain</b><span>On the runway, you fly</span></button>
+      <button class="mode" data-mode="cabin">💺 <b>Passenger</b><span>Cruising, pilots fly</span></button>
+    </div>
+    <button id="play" class="go">▶ PLAY</button>
+    <button id="t-online" class="small online">🌐 Online <small>2–3 players</small></button>
+    <button id="t-help" class="small">Controls</button>
+    <p class="fine">Cartoon physics · no gore: injuries are ragdoll flops &amp; health bars.</p>
+  </div>
+</div>
+
+<div id="pause" class="screen">
+  <div class="card">
+    <h2>⏸ Paused</h2>
+    <div class="grid2">
+      <button id="p-resume" class="go">▶ Resume</button>
+      <button id="p-map">🗺 Flight map / fast travel</button>
+      <button id="p-plane">✈ Change plane</button>
+      <button id="p-online">🌐 Online multiplayer</button>
+      <button id="p-pax">➕ Add passenger</button>
+      <button id="p-crew">➕ Add crew</button>
+      <button id="p-invert">Invert pitch: OFF</button>
+      <button id="p-mute">Sound: ON</button>
+      <button id="p-quality">Graphics</button>
+      <button id="p-restart">↻ Restart flight</button>
+      <button id="p-title">🏠 Title screen</button>
+    </div>
+    <h3>Achievements</h3>
+    <div id="achlist"></div>
+  </div>
+</div>
+
+<div id="over" class="screen">
+  <div class="card">
+    <h2 id="o-title">💥 CRASHED!</h2>
+    <p id="o-sub"></p>
+    <p id="o-stats"></p>
+    <div class="grid2">
+      <button id="o-retry" class="go">↻ Retry</button>
+      <button id="o-map">🗺 Fast travel (new plane)</button>
+      <button id="o-explore">🚶 Explore the wreck</button>
+      <button id="o-titlebtn">🏠 Title</button>
+    </div>
+  </div>
+</div>
+
+<div id="mapScreen" class="screen">
+  <div class="card wide">
+    <h2>🗺 Flight plan — fast travel</h2>
+    <p class="fine">Every city has a working mini airport: 🛬 final approach · 🛫 lined up on the runway · 🅿 parked at a gate (jet bridge connected — walk into the terminal!)</p>
+    <div id="mapplanes" class="planes"></div>
+    <canvas id="bigmap" width="660" height="490"></canvas>
+    <div id="maplist"></div>
+    <button id="m-close">✕ Close</button>
+  </div>
+</div>
+
+<div id="cook" class="panel">
+  <h2>🍳 Galley oven</h2>
+  <p>Pick 1–3 ingredients. Check the labels... some of these have been in the fridge a <i>while</i>.</p>
+  <div id="cook-ings"></div>
+  <div class="row"><button id="cook-go" class="go">🔥 Into the oven</button><button id="cook-x">Cancel</button></div>
+  <p class="fine">Take the tray out at 7–10 s for PERFECT. Too long and it burns... much too long and you'll need the extinguisher.</p>
+</div>
+
+<div id="keypad" class="panel">
+  <h2>🔒 Flight deck access</h2>
+  <div id="kp-disp">____</div>
+  <div class="kp">
+    <button data-k="1">1</button><button data-k="2">2</button><button data-k="3">3</button>
+    <button data-k="4">4</button><button data-k="5">5</button><button data-k="6">6</button>
+    <button data-k="7">7</button><button data-k="8">8</button><button data-k="9">9</button>
+    <button data-k="C">⌫</button><button data-k="0">0</button><button data-k="E">✔</button>
+  </div>
+  <button id="kp-x">Close</button>
+</div>
+
+<div id="planePanel" class="panel">
+  <div class="pp-head"><h2>✈ Choose your plane</h2><button id="plane-x">✕</button></div>
+  <div id="pp-planes"></div>
+</div>
+
+<div id="placePanel" class="panel">
+  <div class="pp-head"><h2 id="pp-title">Place</h2><span id="pp-coins">🪙 0</span><button id="pp-x">✕</button></div>
+  <div id="pp-body"></div>
+</div>
+
+<div id="mp" class="panel">
+  <div class="mphead"><h2>🌐 Online multiplayer</h2><button id="mp-x" aria-label="close">✕</button></div>
+  <div id="mp-setup">
+    <p class="fine">Fly, drive &amp; explore together — 2 players (up to 3), each on their own phone or computer.</p>
+    <div class="mpline"><label for="mp-name">Your name</label><input id="mp-name" maxlength="12" autocomplete="off" spellcheck="false"></div>
+    <div class="mpline"><label>Colour</label><div id="mp-colors"></div></div>
+    <div class="mpline"><label>Players</label><div id="mp-n"><button data-n="2">2</button><button data-n="3">3</button></div></div>
+    <button id="mp-host" class="go">🏠 HOST A ROOM</button>
+    <div class="mpor">— or join a friend —</div>
+    <div class="mpline join"><input id="mp-code" maxlength="5" placeholder="CODE" autocomplete="off" autocapitalize="characters" spellcheck="false"><button id="mp-join" class="go alt">🔗 JOIN</button></div>
+  </div>
+  <div id="mp-room">
+    <div class="mpcode"><small>ROOM CODE</small><b id="mp-codebig">-----</b><span id="mp-codehint"></span></div>
+    <div id="mp-list"></div>
+    <div class="mpbtns"><button id="mp-play" class="go">▶ PLAY</button><button id="mp-goto">📍 Fly to partner</button><button id="mp-ride">🤝 Ride in partner's plane</button><button id="mp-leave">🚪 Leave room</button></div>
+  </div>
+  <div id="mp-status"></div>
+</div>
+
+<div id="ptrans"><div id="ptrans-t">…</div></div>
+<div id="scopeov"><div class="ring"></div><div class="tip">🔭 look around · USE / JUMP to step back</div></div>
+
+<div id="help" class="panel">
+  <h2>Controls <small class="hver">v4.0</small></h2>
+  <div class="cols">
+    <div><h3>🖥 Desktop</h3>
+      <p><b>On foot:</b> WASD move · mouse look · Space jump · F use/interact · Left click tool · Right click (or R) grab/throw · X drop · 1-3 tools (hands/hammer/crowbar) · V camera · Tab map · Esc pause · P add passenger · M mute</p>
+      <p><b>Pilot:</b> W/S pitch (W = nose down) · A/D roll · Q/E rudder · Shift/Ctrl throttle · G gear · Z flaps · B brakes · T autopilot · V chase/cockpit camera · F leave seat · <b>L AUTO LAND</b> (when the banner shows) · <b>G TAXI TO GATE</b> (on the ground at an airport, slow or stopped — G again or any throttle/steering key stops it)</p>
+      <p><b>3.5:</b> hold <b>Shift</b> to RUN on foot · <b>Car:</b> W/S gas &amp; brake/reverse · A/D steer · Space handbrake · N horn · F exit (or click EXIT)</p></div>
+    <div><h3>📱 Phone</h3>
+      <p>Left thumb: joystick (walk / pitch+roll) · Right side: drag to look · 💥 ACTION = use tool / spray · ✋ USE = interact · 🫳 GRAB = grab/throw · ⤒ JUMP (also parachute!) · 🔧 cycle tool · 🎥 camera · 🗺 map</p>
+      <p><b>Pilot:</b> THR slider on the right, GEAR / FLAP / AP / BRK / ◀ ▶ rudder. Near a runway a big orange <b>🛬 AUTO LAND</b> button appears — tap it; move the stick to take back control. On the ground at an airport (slow or stopped) a big blue <b>🚕 TAXI TO GATE</b> button appears — tap it and the plane taxis itself to a free gate; tap it again, move the stick or touch the throttle to stop.</p>
+      <p><b>3.5:</b> 🏃 RUN button (tap = toggle, it turns green; or hold) · <b>Car:</b> joystick steers (push up = gas, down = brake/reverse) or use the big GAS / BRAKE pedals · 🚪 EXIT · 📯 HORN</p></div>
+  </div>
+  <p><b>✈ Airports:</b> land, slow down and taxi along the yellow lines to a free gate (HUD shows the distance). Stop on the gate's yellow stop bar to dock: the jet bridge connects and the front L1 door opens. Leave your seat, walk out the door, down the jet bridge into the terminal (departures board, café, check-in). Walk back down the bridge to reboard, take the controls and throttle up for pushback. <b>T</b> (AP) on the ground = auto-taxi (to a gate after landing, otherwise to the runway &amp; takeoff). Sit in a passenger seat at the gate and the AI crew flies you to the next city.</p>
+  <p><b>🚪 Places:</b> every city has spots you can walk into (glowing gem + ring at the door). Walk into the ring and press F / USE (or tap the orange prompt). Eat to heal (or take food to go on a tray), play slots & arcade games for fun coins 🪙, buy souvenirs, snap 📸 photos (they count for the Tourist badge) and ride elevators 🛗 up to observation decks. MAP → Places lists them all with fast travel.</p>
+  <p><b>🛬 Auto-land (3.5):</b> fly toward any runway roughly lined up (within ~65° and a wide approach cone, 1.5–14 km out, not too high). The AUTO LAND button shows the target runway, e.g. "LAX 25L". It flies the glide path, flares, touches down and brakes to a stop.</p>
+  <p><b>🚕 Taxi to gate (3.5.1):</b> after an auto-land (or whenever you are stopped / rolling slowly on a runway, taxiway or apron) press <b>G</b> or tap <b>TAXI TO GATE</b>. The plane picks the nearest free gate, taxis off the runway, along the taxiways and up to the gate at real taxi speeds (≈20 kts straight, ≈8 kts in turns, walking pace at the gate), waits for apron vehicles crossing its path, and stops on the stop bar: the jet bridge connects and the L1 door opens. A dashed green path with arrows shows the way (also on the minimap). Any throttle, steering or brake input gives you back control.</p>
+  <p><b>🚗 Cars (3.5):</b> every airport has a yellow-signed <b>CAR RENTAL</b> counter next to the terminal parking — rent a compact, sports car or SUV with fun coins. Or walk up to a parked / passing car and press STEAL… that earns wanted stars ★: police cruisers chase you. Get 120 m away from them for 10 s, hide indoors, or drive the car back into any rental lot and EXIT to clear it. If they box you in while you're stopped you're BUSTED (small coin fine, released at the airport police office).</p>
+  <p><b>🔒 Grok Jail (3.5.1):</b> get busted and the cuffs come out: you land in the little GROK JAIL cell at the airport police office. <b>💰 PAY BAIL</b> (18 🪙, key 1) to walk out now, <b>⏳ WAIT IT OUT</b> (key 2, the timer always runs — about 36 s, your cellmate Grizz tells jokes), or <b>🥄 ESCAPE</b> (key 3): tap DIG / press Space fast while the guard looks away — freeze when he turns 👀! Make it through and you're out free with 1 ★; get caught and +10 s. Never enough coins? Waiting always works.</p>
+  <p><b>🩺 Clinics (3.5):</b> every airport has a <b>CLINIC</b> (red cross) beside the rental lot. Walk in, step up to a patient and press USE: pick what's wrong, pick the right tool, then drag it onto the glowing spot (or tap it). Coins + achievements!</p>
+  <p><b>✈ Planes (4.0):</b> pick a Cessna 172, Gulfstream G650, Boeing 737, Airbus A320, Boeing 747 or Airbus A380 on the title screen or in the map. Small planes lift off slowly on short runways; jumbos need long runways and turn slowly.</p>
+  <p><b>🤝 Fly together (4.0):</b> online, walk up to a friend's parked plane (or tap the 🤝 button / 🌐 panel → "Ride in …'s plane") to ride in their plane as co-pilot — stand up and walk the cabin, the flight is the same on both screens. When a friend is inside a place, tap "🚪 Join …" to be in the same room.</p>
+  <p><b>🚀 Starship (4.0):</b> fly to Starbase, walk up to the Mechazilla tower and board Starship to Moon Base Artemis or Mars Base Alpha (low gravity, domes, rovers, a habitat). Friends near the pad can tap "Ride along" during the countdown.</p>
+  <p class="fine">Tips: Takeoff ≈ 130 kts with flaps 1. Approach ≈ 140-150 kts, flaps 2, gear down. Masks drop when the cabin depressurises — stand near one and press USE. Below 10,000 ft the air is breathable.</p>
+  <button id="help-x">Close</button>
+</div>
+
+<script src="three.min.js"></script>
+<script src="js/util.js"></script>
+<script src="js/voxel.js"></script>
+<script src="js/world.js"></script>
+<script src="js/cities.js"></script>
+<script src="js/cities2.js"></script>
+<script src="js/cities3.js"></script>
+<script src="js/airport.js"></script>
+<script src="js/ambient.js"></script>
+<script src="js/plane.js"></script>
+<script src="js/people.js"></script>
+<script src="js/input.js"></script>
+<script src="js/places.js"></script>
+<script src="js/places_defs.js"></script>
+<script src="js/places3.js"></script>
+<script src="js/minigames.js"></script>
+<script src="js/autoland.js"></script>
+<script src="js/taxigate.js"></script>
+<script src="js/jail.js"></script>
+<script src="js/cars.js"></script>
+<script src="js/starship.js"></script>
+<script src="js/clinic.js"></script>
+<script src="js/player.js"></script>
+<script src="peerjs.min.js"></script>
+<script src="js/grok-net.js"></script>
+<script src="js/net.js"></script>
+<script src="js/game.js"></script>
+</body>
+</html>
