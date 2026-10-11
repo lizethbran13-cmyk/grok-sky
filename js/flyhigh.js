@@ -564,7 +564,9 @@ function render() {
     h += '</div>';
   }
   h += '<button class="fhHome" id="fhHomeBtn" aria-label="Home"></button>';
-  el.innerHTML = h;
+  const key = app + '|' + tab, ob = el.querySelector('.fhBody'), keep = (ob && el.dataset.view === key) ? ob.scrollTop : 0; // same screen redrawn (EQUIP, coins) keeps its scroll spot
+  el.innerHTML = h; el.dataset.view = key;
+  const nb = el.querySelector('.fhBody'); if (nb && keep) nb.scrollTop = keep;
   el.querySelectorAll('[data-app]').forEach((b) => b.onclick = () => { app = b.dataset.app; SFX.phone(); render(); });
   el.querySelectorAll('[data-tab]').forEach((b) => b.onclick = () => { tab = b.dataset.tab; render(); });
   el.querySelectorAll('[data-buy]').forEach((b) => b.onclick = () => FH.buy(b.dataset.buy));
@@ -608,14 +610,15 @@ function refresh() {
     if (can) { SKY.toast(own ? '🎉 Fly High Item Pack unlocked! Open your 📱 phone (O) → ⚡ ZipDrop' : '🤝 The host shares the Fly High Item Pack: open your 📱 phone → ⚡ ZipDrop', 'good'); SKY.Audio.play('chime'); }
     else SKY.toast('📱 Fly High gadgets are off: the host who shared them left', 'warn');
   }
-  lastCan = can; FH.sync(); if (FH.isOpen()) render();
+  const changed = lastCan !== null && can !== lastCan;
+  lastCan = can; FH.sync(); if (changed && FH.isOpen()) render(); // booth #36: only redraw the phone when the pack turns on/off (a redraw every second threw ZipDrop back to the top)
 }
 FH.refresh = refresh;
 addEventListener('storage', (e) => { if (e.key === FH.KEY || e.key === null) refresh(); });
 setInterval(() => {
   refresh();
   const N = SKY.Net; if (N && N.isHost && N.isHost() && N.room) { const m = N.room.meta() || {}; const v = FH.owned() ? 1 : 0; if ((m.fh || 0) !== v) N.room.setMeta({ fh: v }); }
-  if (FH.isOpen() && app !== 'zip') { const st = document.querySelector('#fhScreen .fhStatus span'); if (st) st.textContent = '📶 🔋 · 🪙 ' + coins(); }
+  if (FH.isOpen()) { const st = document.querySelector('#fhScreen .fhStatus span'); if (st) st.textContent = '📶 🔋 · 🪙 ' + coins(); }
 }, 1000);
 addEventListener('keydown', (e) => {
   if (e.target && e.target.tagName === 'INPUT') return;
