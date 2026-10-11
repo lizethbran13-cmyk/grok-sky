@@ -28,7 +28,7 @@ const TYPES = {
   C172: { id: 'C172', name: 'Cessna 172 Skyhawk', short: 'Cessna 172', icon: '🛩️', cls: 'small', seats: 4, blurb: 'High-wing trainer with a propeller. Slow, gentle and forgiving — lands almost anywhere.',
     mass: 1100, I: [8300, 10300, 5700], sv: 0.38, tk: 1.3, cd0: 0.02, rates: [0.85, 1.9, 0.5], resp: 1.35, vr: 29, vapp: 31, vclimb: 38, vcruise: 58, alt: 1200, vsMax: 7, rotPitch: 0.2,
     rwy: 350, eng: { mul: 1.75, prop: true }, gearH: 1.25, fixedGear: true, cam: [13, 1.4], door: { x: -1.3, z: -1.2 }, S: 0.25,
-    gear: [[0, -3.9], [-1.35, -0.6], [1.35, -0.6]], anchor: [-1.1, 1.1, -0.6, 0.3, -2.6, 0.6], engines: [[0, 0.5, -4.6]], spanW: 7.2 },
+    gear: [[0, -3.9], [-1.35, 0.25], [1.35, 0.25]], anchor: [-1.1, 1.1, -0.6, 0.3, -2.6, 0.6], engines: [[0, 0.5, -4.6]], spanW: 7.2 },
   BIZ: { id: 'BIZ', name: 'Gulfstream G650 business jet', short: 'Gulfstream G650', icon: '💼', cls: 'small', seats: 8, blurb: 'Sleek private jet with T-tail and rear engines. Fast, agile and quick to climb.',
     mass: 40000, I: [1.3e6, 1.63e6, 0.9e6], sv: 0.9, tk: 1.3, cd0: 0, rates: [0.75, 1.9, 0.38], resp: 1.2, vr: 60, vapp: 60, vclimb: 165, vcruise: 235, alt: 2800, vsMax: 18, rotPitch: 0.17,
     rwy: 1200, eng: { mul: 1.35 }, gearH: 1.75, cam: [22, 2], door: { x: -1.6, z: -7.6 }, S: 0.3,
@@ -183,7 +183,10 @@ function buildJet(T, ctx) {
       else if (d > er - 0.48) set(i, j, k, k === kz1 ? MAT.FAN : MAT.ENG, part);
     }
     const jw = jwAt(Math.abs(ex));
-    for (let k = kZ(e0.z0 + 2.6); k <= kZ(e0.z1 + 2.8); k++) for (let j = jY(ey + er * 0.55); j < jw; j++) { const i = iXg(ex); if (!g.get(i, j, k)) set(i, j, k, MAT.ENG, part); }
+    // booth #35: the pylon runs back until it overlaps the wing (on the 747/A380 it used to stop short, so the engines were never joined to the
+    // wing and the first scrape anywhere made all 4 engines fall off -> no thrust -> crash). It also gets 2 voxels wide so it can't be cut by a nick.
+    const leW = G.le0 + Math.abs(ex) * G.sweep, kEnd = Math.max(kZ(e0.z1 + 2.8), kZ(leW + 0.8));
+    for (let k = kZ(e0.z0 + 2.6); k <= kEnd; k++) { const jb = k > kZ(e0.z1) ? jY(ey + er - 0.25) : jY(ey + er * 0.55); for (let j = Math.min(jb, jw), j1 = Math.max(jb, jw - 1); j <= j1; j++) for (const i of [iXg(ex), iXg(ex) + (ex < 0 ? 1 : -1)]) { if (!g.get(i, j, k)) set(i, j, k, MAT.ENG, part); } }
   }
   // horizontal stabiliser
   const te = G.tailExt || 0, hsK = G.hsK || 1, hsSpan = 6.2 * hsK;
@@ -248,7 +251,7 @@ function buildCessna(T, ctx) {
     if (ax < 0.26 && y > 0.9 && y < 3.0) { const le = 4.3 + (y - 0.9) * 0.55; if (z > le && z < 6.5 && !(y > 2.6 && z < le + 0.4)) return [y > 1.9 ? red : MAT.HULL, y > 1.3 ? PART.VS : PART.FUS]; }
     if (ax < 0.26 && y > 0.85 && y < 1.4 && z > 2.6 && z < 4.6 && y < 0.85 + (z - 2.6) * 0.3) return [MAT.HULL, PART.FUS];
     // wheel pants
-    for (const [gx, gz] of [[-1.35, -0.6], [1.35, -0.6], [0, -3.9]]) if (Math.abs(x - gx) < 0.2 && y > -1.15 && y < -0.65 && Math.abs(z - gz) < 0.45) return [red, PART.FUS];
+    for (const [gx, gz] of [[-1.35, 0.25], [1.35, 0.25], [0, -3.9]]) if (Math.abs(x - gx) < 0.2 && y > -1.15 && y < -0.65 && Math.abs(z - gz) < 0.45) return [red, PART.FUS];
     return null;
   });
   const seats = ctx.seats = [];
@@ -373,7 +376,7 @@ class Plane {
     this.follow = null;
     if (this.grid) { this.group.remove(this.grid.group); this.grid.dispose(); }
     this.grid = this.buildGrid(); this.grid.build(this.group);
-    this.computeSamples();
+    this.computeSamples(); this.groundLimits();
     for (const s of this.seats) s.occupant = null;
     this.crashed = false; this.crashT = 0; this.gearDown = true; this.gearBroken = false; this.flaps = 0; this.throttle = 0; this.brake = false;
     this.ap = { on: false, mode: 'off', alt: 2400, hdg: 0, dest: null, by: null, spd: 200 }; this.alphaFloor = 0; this.propA = 0;
@@ -405,6 +408,31 @@ class Plane {
     }
     this.skipKick = 2;     this.prevVel.copy(this.vel); this.group.updateMatrixWorld(true);
     this.prevSamples = null;
+  }
+  // booth #35 ground guard: with the wheels down and close to the runway, no tail, engine or wingtip may be rotated into the ground.
+  // Each frame we find the lowest non-wheel point of the airframe; if it gets close to the ground, any pitch/roll that would push it
+  // lower fades out and a small push lifts it back. Works for every plane and any mix of pitch + bank (rotation, wobbly stick, flare).
+  groundLimits() { this.gRest = new Map(); for (const sm of this.samples) this.gRest.set(sm.id, sm.p.y + this.T.gearH); }
+  groundGuard(dt, spd) {
+    if (!this.gearDown || this.gearBroken || this.follow || spd < 2 || !this.samples.length) return;
+    const gH = SKY.World.heightAt(this.pos.x, this.pos.z), alt0 = this.pos.y - gH;
+    if (alt0 > this.T.gearH + 14) return;
+    const M = this.small ? 0.35 : 0.6, w = this.w, q = this.quat, v = new THREE.Vector3();
+    let worst = 1e9, ws = null, wc = 0, wm = M;
+    for (const sm of this.samples) {
+      v.copy(sm.p).applyQuaternion(q); const c = alt0 + v.y;
+      const rest = this.gRest && this.gRest.has(sm.id) ? this.gRest.get(sm.id) : sm.p.y + this.T.gearH;
+      const m = clamp(rest * 0.6, 0.05, M); const r = c / m;
+      if (r < worst) { worst = r; ws = sm; wc = c; wm = m; }
+    }
+    if (!ws || worst >= 1) return;
+    const rp = ws.p, kk = clamp(worst, 0, 1);
+    const gx = v.set(0, -rp.z, rp.y).applyQuaternion(q).y; // how fast the point rises per unit nose-up rate
+    const gz = v.set(-rp.y, rp.x, 0).applyQuaternion(q).y; // ... per unit roll rate
+    if (w.x * gx < 0) w.x *= kk; if (w.z * gz < 0) w.z *= kk;
+    const push = (wm - wc) * 2.2;
+    if (gx < 0) w.x += Math.sign(gx) * push * dt * 30 * Math.abs(gx) / (Math.abs(gx) + Math.abs(gz) + 1e-6) * 0.05; // nose-down only (tail points)
+    w.z += Math.sign(gz) * push * dt * 30 * Math.abs(gz) / (Math.abs(gx) + Math.abs(gz) + 1e-6) * 0.05;
   }
   computeSamples() {
     const g = this.grid, pts = [];
@@ -582,6 +610,7 @@ class Plane {
     const w = this.w;
     if (!this.crashed) {
       w.x += (pitchRate - w.x) * k; w.z += (rollRate - w.z) * k; w.y += (yawRate - w.y) * k * 0.6;
+      this.groundGuard(dt, spd);
     }
     // aero stability: nose follows velocity
     if (spd > 10) {
